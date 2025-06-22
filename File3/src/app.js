@@ -1,0 +1,28 @@
+import express from "express"
+import cors from "cors"
+import cookieParser from "cookie-parser"
+
+const app = express()
+
+app.use(cors({
+     origin: process.env.CORS_ORIGIN, // how mane origin are alow
+     credentials: true
+}))
+
+
+app.use(express.json({limit: "16kb"}))
+app.use(express.urlencoded({extended: true, limit:"16kb"}))
+app.use(express.static("public"))
+app.use(cookieParser())
+
+// routes import
+import userRouter from './routes/user.routes.js'
+
+// routes declaration
+// app.get {this hear wrie app and contolar but || saparet item usse rowter using middlewar}
+app.use("/api/v1/users",userRouter) // /user is midelware 
+
+// http://localhost:8000/api/v1/users/register
+
+export { app }
+
