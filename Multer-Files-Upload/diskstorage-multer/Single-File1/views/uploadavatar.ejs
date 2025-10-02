@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avatar Upload</title>
+</head>
+<body>
+  <h2>Upload Avatar</h2>
+  <form action="/upload/avatars/images" method="POST" enctype="multipart/form-data">
+    <input type="file" name="avatarImage" required />
+    <button type="submit">Upload</button>
+  </form>
+  <a href="/blog">See Blogs</a>
+
+  <% if (locals.file) { %>
+    <h3>Uploaded Avatar Preview:</h3>
+    <img src="/uploads/avatars/<%= file.filename %>" alt="avatar" width="150"/>
+
+    <h3>File Details</h3>
+    <table border="1" cellpadding="5">
+      <tr><th>Field</th><th>Value</th></tr>
+      <tr><td>fieldname</td><td><%= file.fieldname %></td></tr>
+      <tr><td>originalname</td><td><%= file.originalname %></td></tr>
+      <tr><td>encoding</td><td><%= file.encoding %></td></tr>
+      <tr><td>mimetype</td><td><%= file.mimetype %></td></tr>
+      <tr><td>destination</td><td><%= file.destination %></td></tr>
+      <tr><td>filename</td><td><%= file.filename %></td></tr>
+      <tr><td>path</td><td><%= file.path %></td></tr>
+      <tr><td>size</td><td><%= file.size %> bytes</td></tr>
+    </table>
+  <% } %>
+</body>
+</html>

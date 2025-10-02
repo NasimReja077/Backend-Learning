@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Images Upload</title>
+</head>
+<body>
+  <h2>Upload Files (multiple)</h2>
+  <form action="/upload/blogs/images" method="POST" enctype="multipart/form-data">
+    <input type="file" name="blogImages" multiple accept="*/*" />
+    <button type="submit">Upload</button>
+  </form>
+  <p>Max file size: 50MB per file. All file types allowed.</p>
+  <a href="/">See Avatar Upload</a>
+
+  <% if (files && files.length > 0) { %>
+    <h3>Uploaded Files:</h3>
+    <% files.forEach(file => { %>
+      <div style="margin-bottom:15px;">
+        <% if (file.mimetype.startsWith('image/')) { %>
+          <img src="/uploads/blogs/<%= file.filename %>" alt="preview" width="150"/>
+        <% } else if (file.mimetype.startsWith('video/')) { %>
+          <video width="150" controls>
+            <source src="/uploads/blogs/<%= file.filename %>" type="<%= file.mimetype %>">
+            Your browser does not support the video tag.
+          </video>
+        <% } else if (file.mimetype === 'application/pdf') { %>
+          <a href="/uploads/blogs/<%= file.filename %>" target="_blank">View PDF</a>
+        <% } else { %>
+          <a href="/uploads/blogs/<%= file.filename %>" download>Download File</a>
+        <% } %>
+
+        <table border="1" cellpadding="5" style="margin-top:5px;">
+          <tr><th>Field</th><th>Value</th></tr>
+          <tr><td>fieldname</td><td><%= file.fieldname %></td></tr>
+          <tr><td>originalname</td><td><%= file.originalname %></td></tr>
+          <tr><td>encoding</td><td><%= file.encoding %></td></tr>
+          <tr><td>mimetype</td><td><%= file.mimetype %></td></tr>
+          <tr><td>destination</td><td><%= file.destination %></td></tr>
+          <tr><td>filename</td><td><%= file.filename %></td></tr>
+          <tr><td>path</td><td><%= file.path %></td></tr>
+          <tr><td>size</td><td><%= file.size %> bytes</td></tr>
+        </table>
+      </div>
+    <% }) %>
+  <% } %>
+</body>
+</html>
