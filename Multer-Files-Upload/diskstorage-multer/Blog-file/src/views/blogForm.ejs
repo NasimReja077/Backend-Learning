@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Blog</title>
+</head>
+<body>
+  <h1>Create Blog Post</h1>
+  <form action="/blog" method="POST" enctype="multipart/form-data">
+    <input type="text" name="title" placeholder="Title" required><br>
+    <textarea name="content" placeholder="Content" required></textarea><br>
+    <label>Thumbnail:</label>
+    <input type="file" name="thumbnail" accept="image/*" required><br>
+    <label>Content Images (max 10):</label>
+    <input type="file" name="contentImages" accept="image/*" multiple><br>
+    <button type="submit">Create Blog</button>
+  </form>
+</body>
+</html>
