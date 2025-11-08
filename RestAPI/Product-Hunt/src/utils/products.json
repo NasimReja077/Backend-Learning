@@ -1,0 +1,107 @@
+[
+  {
+    "name": "iphone",
+    "price": 154,
+    "featured": true,
+    "company": "apple",
+    "rating": 4.8
+  },
+  {
+    "name": "iphone10",
+    "price": 1154,
+    "featured": true,
+    "company": "apple",
+    "rating": 4.9
+  },
+  {
+    "name": "watch",
+    "price": 204,
+    "featured": false,
+    "company": "apple",
+    "rating": 4.2
+  },
+  {
+    "name": "watch10",
+    "price": 304,
+    "featured": false,
+    "company": "apple",
+    "rating": 4.4
+  },
+  {
+    "name": "Galaxy S23 Ultra",
+    "price": 1099,
+    "featured": true,
+    "company": "samsung",
+    "rating": 5.0
+  },
+  {
+    "name": "Dell XPS 13",
+    "price": 1499,
+    "featured": false,
+    "company": "dell",
+    "rating": 4.7
+  },
+  {
+    "name": "Mi Smart Band 8",
+    "price": 55,
+    "featured": false,
+    "company": "mi",
+    "rating": 4.1
+  },
+  {
+    "name": "Nokia G400",
+    "price": 239,
+    "featured": false,
+    "company": "nokia",
+    "rating": 3.9
+  },
+  {
+    "name": "Asus ROG Strix G15",
+    "price": 1999,
+    "featured": true,
+    "company": "asus",
+    "rating": 4.9
+  },
+  {
+    "name": "LG UltraGear Monitor",
+    "price": 450,
+    "featured": false,
+    "company": "lg",
+    "rating": 4.6
+  },
+  {
+    "name": "Dell Inspiron 15",
+    "price": 650,
+    "featured": false,
+    "company": "dell",
+    "rating": 4.3
+  },
+  {
+    "name": "Samsung QLED TV",
+    "price": 899,
+    "featured": true,
+    "company": "samsung",
+    "rating": 4.7
+  },
+  {
+    "name": "Mi Power Bank Pro",
+    "price": 45,
+    "featured": false,
+    "company": "mi",
+    "rating": 4.5
+  },
+  {
+    "name": "Asus Zenbook Duo",
+    "price": 1850,
+    "featured": true,
+    "company": "asus",
+    "rating": 5.0
+  },
+  {
+    "name": "LG Gram Laptop",
+    "price": 1250,
+    "featured": false,
+    "company": "lg",
+    "rating": 4.6
+  }
+]
