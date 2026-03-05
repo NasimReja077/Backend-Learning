@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redis Cache Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f0e8;
+    --card: #fff;
+    --red: #d63031;
+    --green: #00b894;
+    --yellow: #fdcb6e;
+    --dark: #1e1e1e;
+    --dim: #888;
+    --border: #e0d9cc;
+    --hit: #00b89422;
+    --miss: #d6303122;
+  }
+
+  body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--dark); min-height: 100vh; padding: 30px 20px; }
+
+  h1 { font-size: 2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; }
+  h1 span { color: var(--red); }
+
+  .mono { font-family: 'Space Mono', monospace; }
+  .subtitle { font-family: 'Space Mono', monospace; font-size: 0.72rem; color: var(--dim); margin-bottom: 28px; }
+
+  .layout { display: grid; grid-template-columns: 1fr 1.4fr; gap: 20px; max-width: 960px; }
+  @media (max-width: 650px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--card); border: 2px solid var(--border); border-radius: 12px; padding: 22px; }
+  .panel h2 { font-size: 0.72rem; font-family: 'Space Mono', monospace; color: var(--dim); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 18px; }
+
+  label { display: block; font-size: 0.78rem; font-family: 'Space Mono', monospace; color: var(--dim); margin-bottom: 5px; margin-top: 14px; }
+  label:first-of-type { margin-top: 0; }
+
+  input, textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    color: var(--dark);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, textarea:focus { border-color: var(--red); }
+  textarea { height: 70px; resize: none; }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+
+  button {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+  .btn-set { background: var(--dark); color: white; }
+  .btn-set:hover { background: #333; }
+  .btn-get { background: var(--green); color: white; }
+  .btn-get:hover { background: #00a382; }
+  .btn-del { background: white; border-color: var(--red); color: var(--red); }
+  .btn-del:hover { background: var(--red); color: white; }
+  .btn-flush { background: white; border-color: var(--border); color: var(--dim); }
+  .btn-flush:hover { border-color: var(--dark); color: var(--dark); }
+
+  /* Cache Grid */
+  .cache-grid { display: flex; flex-direction: column; gap: 8px; }
+
+  .cache-entry {
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    position: relative;
+    transition: all 0.3s ease;
+    animation: pop 0.3s ease;
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .cache-entry.expiring { border-color: var(--yellow); background: #fffbf0; }
+  .cache-entry.expired { opacity: 0.4; border-style: dashed; }
+
+  .entry-key { font-family: 'Space Mono', monospace; font-size: 0.8rem; font-weight: 700; color: var(--red); }
+  .entry-val { font-family: 'Space Mono', monospace; font-size: 0.78rem; color: var(--dark); margin-top: 3px; word-break: break-all; }
+  .entry-ttl {
+    position: absolute; top: 10px; right: 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--dim);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .ttl-bar {
+    width: 60px; height: 4px;
+    background: #eee;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 1px;
+  }
+  .ttl-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 2px;
+    transition: width 0.9s linear;
+  }
+  .ttl-fill.warn { background: var(--yellow); }
+  .ttl-fill.low { background: var(--red); }
+
+  .no-persist { font-size: 0.72rem; font-family: 'Space Mono', monospace; color: var(--dim); margin-top: 1px; }
+
+  /* Stats */
+  .stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .stat { background: var(--bg); border-radius: 8px; padding: 12px; text-align: center; }
+  .stat-val { font-size: 1.6rem; font-weight: 800; }
+  .stat-label { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--dim); text-transform: uppercase; margin-top: 2px; }
+  .stat-val.hit { color: var(--green); }
+  .stat-val.miss { color: var(--red); }
+  .stat-val.keys { color: var(--dark); }
+
+  /* Response Box */
+  .response {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    min-height: 44px;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    color: var(--dim);
+    transition: all 0.2s;
+  }
+  .response.hit { background: var(--hit); border-color: var(--green); color: var(--dark); }
+  .response.miss { background: var(--miss); border-color: var(--red); color: var(--red); }
+
+  .empty-cache { font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--dim); text-align: center; padding: 30px; }
+</style>
+</head>
+<body>
+
+<h1>Redis <span>Cache</span> Simulator</h1>
+<p class="subtitle">SET · GET · EXPIRE · TTL · DEL · FLUSHDB</p>
+
+<div class="layout">
+  <!-- Controls -->
+  <div class="panel">
+    <h2>// Commands</h2>
+
+    <label>KEY</label>
+    <input type="text" id="keyInput" placeholder="user:123" />
+
+    <label>VALUE</label>
+    <textarea id="valInput" placeholder='{"name":"Alice","role":"admin"}'></textarea>
+
+    <label>TTL (seconds, 0 = no expiry)</label>
+    <input type="number" id="ttlInput" value="15" min="0" max="300" />
+
+    <div class="btn-row">
+      <button class="btn-set" onclick="cmdSET()">SET</button>
+      <button class="btn-get" onclick="cmdGET()">GET</button>
+      <button class="btn-del" onclick="cmdDEL()">DEL</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-flush" onclick="cmdFLUSH()">FLUSHDB (clear all)</button>
+    </div>
+  </div>
+
+  <!-- Live Cache View -->
+  <div class="panel">
+    <h2>// Live Cache State</h2>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val hit" id="hitCount">0</div><div class="stat-label">Cache Hits</div></div>
+      <div class="stat"><div class="stat-val miss" id="missCount">0</div><div class="stat-label">Cache Misses</div></div>
+      <div class="stat"><div class="stat-val keys" id="keyCount">0</div><div class="stat-label">Keys</div></div>
+    </div>
+
+    <div class="response mono" id="responseBox">Awaiting command...</div>
+
+    <div class="cache-grid" id="cacheGrid">
+      <div class="empty-cache">Cache is empty.<br>Use SET to add keys.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // cache: { key: { value, expireAt (ms) | null } }
+  const cache = {};
+  let hits = 0, misses = 0;
+
+  function respond(msg, type = '') {
+    const box = document.getElementById('responseBox');
+    box.textContent = msg;
+    box.className = 'response mono ' + type;
+  }
+
+  function updateStats() {
+    document.getElementById('hitCount').textContent = hits;
+    document.getElementById('missCount').textContent = misses;
+    document.getElementById('keyCount').textContent = Object.keys(cache).length;
+  }
+
+  function isAlive(key) {
+    const entry = cache[key];
+    if (!entry) return false;
+    if (entry.expireAt === null) return true;
+    return Date.now() < entry.expireAt;
+  }
+
+  function cmdSET() {
+    const key = document.getElementById('keyInput').value.trim();
+    const val = document.getElementById('valInput').value.trim();
+    const ttl = parseInt(document.getElementById('ttlInput').value);
+    if (!key) { respond('ERR: key required', 'miss'); return; }
+    cache[key] = { value: val || '""', expireAt: ttl > 0 ? Date.now() + ttl * 1000 : null, ttl };
+    respond(`OK  →  SET "${key}"${ttl > 0 ? ` EX ${ttl}` : ''}`);
+    render();
+    updateStats();
+  }
+
+  function cmdGET() {
+    const key = document.getElementById('keyInput').value.trim();
+    if (!key) { respond('ERR: key required', 'miss'); return; }
+    if (!cache[key] || !isAlive(key)) {
+      if (cache[key]) delete cache[key]; // expired
+      misses++;
+      respond(`(nil)  →  CACHE MISS for "${key}"`, 'miss');
+    } else {
+      hits++;
+      respond(`CACHE HIT  →  "${key}": ${cache[key].value}`, 'hit');
+    }
+    updateStats();
+    render();
+  }
+
+  function cmdDEL() {
+    const key = document.getElementById('keyInput').value.trim();
+    if (!key) { respond('ERR: key required', 'miss'); return; }
+    if (cache[key]) {
+      delete cache[key];
+      respond(`(integer) 1  →  DEL "${key}" success`);
+    } else {
+      respond(`(integer) 0  →  "${key}" not found`, 'miss');
+    }
+    updateStats();
+    render();
+  }
+
+  function cmdFLUSH() {
+    const count = Object.keys(cache).length;
+    for (const k in cache) delete cache[k];
+    respond(`OK  →  FLUSHDB — removed ${count} keys`);
+    updateStats();
+    render();
+  }
+
+  function render() {
+    const grid = document.getElementById('cacheGrid');
+    const now = Date.now();
+    const keys = Object.keys(cache);
+
+    if (keys.length === 0) {
+      grid.innerHTML = '<div class="empty-cache">Cache is empty.<br>Use SET to add keys.</div>';
+      return;
+    }
+
+    grid.innerHTML = '';
+    keys.forEach(key => {
+      const entry = cache[key];
+      const alive = isAlive(key);
+      let ttlText = '∞', pct = 100, warnClass = '';
+
+      if (entry.expireAt !== null) {
+        const rem = Math.max(0, Math.ceil((entry.expireAt - now) / 1000));
+        ttlText = rem + 's';
+        pct = Math.max(0, (rem / entry.ttl) * 100);
+        warnClass = pct < 30 ? 'low' : pct < 60 ? 'warn' : '';
+      }
+
+      const div = document.createElement('div');
+      div.className = 'cache-entry' + (!alive ? ' expired' : pct < 30 && entry.expireAt !== null ? ' expiring' : '');
+      div.innerHTML = `
+        <div class="entry-key">${key}</div>
+        <div class="entry-val">${entry.value}</div>
+        <div class="entry-ttl">
+          TTL: ${ttlText}
+          ${entry.expireAt !== null ? `<div class="ttl-bar"><div class="ttl-fill ${warnClass}" style="width:${pct}%"></div></div>` : ''}
+        </div>
+      `;
+      grid.appendChild(div);
+    });
+  }
+
+  // Auto-remove expired keys + re-render every second
+  setInterval(() => {
+    let changed = false;
+    for (const key in cache) {
+      if (!isAlive(key)) { delete cache[key]; changed = true; }
+    }
+    if (changed) { updateStats(); render(); }
+    else render(); // re-render TTL bars
+  }, 1000);
+</script>
+</body>
+</html>
