@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redis Pub/Sub + Rate Limiter</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=Outfit:wght@400;600;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #21262d;
+    --red: #ff4444;
+    --blue: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --purple: #bc8cff;
+    --text: #c9d1d9;
+    --dim: #484f58;
+  }
+
+  body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 28px 20px; }
+
+  h1 { font-size: 1.9rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
+  .subtitle { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--dim); margin-bottom: 28px; }
+  .subtitle span { color: var(--red); }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tab {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 8px 18px;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    cursor: pointer;
+    background: var(--bg);
+    color: var(--dim);
+    transition: all 0.15s;
+  }
+  .tab.active { background: var(--card); color: var(--text); border-color: var(--border); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 600px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .panel h2 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+  }
+
+  input, select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 11px;
+    border-radius: 5px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 8px;
+  }
+  input:focus, select:focus { border-color: var(--blue); }
+
+  button {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 7px 14px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    margin-right: 6px;
+    margin-bottom: 6px;
+  }
+  button:hover { opacity: 0.85; }
+  .btn-blue { background: var(--blue); color: #000; }
+  .btn-green { background: var(--green); color: #000; }
+  .btn-red { background: var(--red); color: white; }
+  .btn-ghost { background: var(--border); color: var(--text); }
+
+  /* Pub/Sub */
+  .channels { display: flex; flex-direction: column; gap: 8px; }
+  .channel-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .channel-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+  .channel-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .channel-name { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; color: var(--blue); flex: 1; }
+  .sub-count { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--dim); }
+
+  .msg-feed {
+    height: 220px;
+    overflow-y: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    line-height: 1.7;
+  }
+  .msg-feed::-webkit-scrollbar { width: 3px; }
+  .msg-feed::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .msg {
+    padding: 5px 0;
+    border-bottom: 1px solid #1a1f26;
+    animation: fadein 0.3s ease;
+  }
+  @keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
+  .msg-ch { color: var(--purple); }
+  .msg-body { color: var(--text); }
+  .msg-time { color: var(--dim); }
+
+  /* Rate Limiter */
+  .ip-list { display: flex; flex-direction: column; gap: 8px; }
+  .ip-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    transition: border-color 0.3s;
+  }
+  .ip-card.blocked { border-color: var(--red); background: #1a0d0d; }
+  .ip-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .ip-name { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; color: var(--blue); }
+  .ip-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--green);
+    color: #000;
+  }
+  .ip-badge.blocked { background: var(--red); color: white; }
+
+  .rate-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .rate-fill { height: 100%; border-radius: 3px; background: var(--green); transition: width 0.3s; }
+  .rate-fill.warn { background: var(--yellow); }
+  .rate-fill.full { background: var(--red); }
+
+  .rate-info { display: flex; justify-content: space-between; margin-top: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--dim); }
+
+  .stat-big { text-align: center; }
+  .stat-big .val { font-size: 2rem; font-weight: 800; }
+  .stat-big .lbl { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--dim); text-transform: uppercase; margin-top: 4px; }
+
+  .empty { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--dim); text-align: center; padding: 24px; }
+</style>
+</head>
+<body>
+
+<h1>Redis Patterns</h1>
+<p class="subtitle"><span>PUBLISH</span> · <span>SUBSCRIBE</span> · <span>INCR</span> · <span>EXPIRE</span> · Rate Limiting</p>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('pubsub')">📡 Pub / Sub</div>
+  <div class="tab" onclick="showTab('ratelimit')">🚦 Rate Limiter</div>
+</div>
+
+<!-- PUB/SUB TAB -->
+<div id="tab-pubsub" class="tab-content active">
+  <div class="grid2">
+    <!-- Publisher -->
+    <div class="panel">
+      <h2>// Publisher</h2>
+      <select id="pubChannel">
+        <option value="news:breaking">news:breaking</option>
+        <option value="chat:general">chat:general</option>
+        <option value="alerts:system">alerts:system</option>
+        <option value="events:user">events:user</option>
+      </select>
+      <input type="text" id="pubMsg" placeholder="Message payload..." />
+      <button class="btn-red" onclick="publish()">PUBLISH</button>
+      <button class="btn-ghost" onclick="autoPublish()" id="autoBtn">▶ Auto-publish</button>
+
+      <div style="margin-top:18px">
+        <h2>// Active Channels</h2>
+        <div class="channels" id="channelList">
+          <div class="empty">No messages published yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subscribers / Feed -->
+    <div class="panel">
+      <h2>// Subscriber Feed (SUBSCRIBE *)</h2>
+      <div style="margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-green" onclick="subscribe('news:breaking')">SUB news:breaking</button>
+        <button class="btn-blue" onclick="subscribe('chat:general')">SUB chat:general</button>
+        <button class="btn-ghost" onclick="unsubAll()">UNSUBSCRIBE *</button>
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--dim);margin-bottom:10px">
+        Subscribed: <span id="subList" style="color:var(--purple)">none</span>
+      </div>
+      <div class="msg-feed" id="msgFeed">
+        <div class="msg"><span class="msg-time">--:--:--</span> <span style="color:var(--dim)">Waiting for messages...</span></div>
+      </div>
+      <div style="margin-top:10px;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--dim)">
+        Total messages received: <span id="msgCount" style="color:var(--green)">0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RATE LIMITER TAB -->
+<div id="tab-ratelimit" class="tab-content">
+  <div class="grid2">
+    <div class="panel">
+      <h2>// Configuration</h2>
+      <label style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--dim);display:block;margin-bottom:4px">Max requests per window</label>
+      <input type="number" id="maxReqs" value="10" min="1" max="50" />
+      <label style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--dim);display:block;margin-bottom:4px;margin-top:4px">Window (seconds)</label>
+      <input type="number" id="windowSec" value="10" min="5" max="60" />
+
+      <div style="margin-top:16px">
+        <h2>// Simulate Request</h2>
+        <select id="reqIP">
+          <option value="192.168.1.1">192.168.1.1</option>
+          <option value="10.0.0.5">10.0.0.5</option>
+          <option value="172.16.0.3">172.16.0.3</option>
+        </select>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn-blue" onclick="makeRequest()">Send Request</button>
+          <button class="btn-green" onclick="spam5()">Spam ×5</button>
+          <button class="btn-red" onclick="spam20()">Spam ×20</button>
+          <button class="btn-ghost" onclick="resetAll()">Reset All</button>
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <h2>// Redis Pattern</h2>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--green);line-height:1.9;background:#0d1117;padding:12px;border-radius:6px">
+          <div style="color:var(--dim)"># Fixed Window Counter</div>
+          <div>key = <span style="color:var(--purple)">"rate:{ip}:{window}"</span></div>
+          <div>count = <span style="color:var(--blue)">INCR</span> key</div>
+          <div><span style="color:var(--yellow)">IF</span> count == 1:</div>
+          <div>&nbsp;&nbsp;<span style="color:var(--blue)">EXPIRE</span> key {window}s</div>
+          <div><span style="color:var(--yellow)">IF</span> count > max:</div>
+          <div>&nbsp;&nbsp;<span style="color:var(--red)">→ 429 Too Many Requests</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>// IP Rate Status</h2>
+      <div class="grid3">
+        <div class="stat-big"><div class="val" style="color:var(--green)" id="totalAllowed">0</div><div class="lbl">Allowed</div></div>
+        <div class="stat-big"><div class="val" style="color:var(--red)" id="totalBlocked">0</div><div class="lbl">Blocked</div></div>
+        <div class="stat-big"><div class="val" style="color:var(--blue)" id="totalReqs">0</div><div class="lbl">Total</div></div>
+      </div>
+      <div class="ip-list" id="ipList">
+        <div class="empty">No requests yet. Send some!</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---- TAB LOGIC ----
+  function showTab(id) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    document.querySelectorAll('.tab')[id === 'pubsub' ? 0 : 1].classList.add('active');
+  }
+
+  // ---- PUB/SUB ----
+  const channelStats = {}; // channel -> { count, lastMsg }
+  const subscriptions = new Set();
+  let msgCount = 0;
+  let autoInterval = null;
+
+  function publish() {
+    const ch = document.getElementById('pubChannel').value;
+    const msg = document.getElementById('pubMsg').value || `payload_${Date.now()}`;
+    document.getElementById('pubMsg').value = '';
+
+    if (!channelStats[ch]) channelStats[ch] = { count: 0, lastMsg: '' };
+    channelStats[ch].count++;
+    channelStats[ch].lastMsg = msg;
+
+    renderChannels();
+
+    if (subscriptions.has(ch) || subscriptions.has('*')) {
+      addMsg(ch, msg);
+    }
+  }
+
+  function subscribe(ch) {
+    subscriptions.add(ch);
+    document.getElementById('subList').textContent = [...subscriptions].join(', ') || 'none';
+    addMsg('SYSTEM', `Subscribed to "${ch}"`);
+  }
+
+  function unsubAll() {
+    subscriptions.clear();
+    document.getElementById('subList').textContent = 'none';
+    addMsg('SYSTEM', 'UNSUBSCRIBE * — unsubscribed from all channels');
+  }
+
+  function addMsg(ch, body) {
+    const feed = document.getElementById('msgFeed');
+    const now = new Date().toTimeString().slice(0, 8);
+    const div = document.createElement('div');
+    div.className = 'msg';
+    const color = ch === 'SYSTEM' ? 'var(--yellow)' : 'var(--purple)';
+    div.innerHTML = `<span class="msg-time">${now}</span> [<span class="msg-ch" style="color:${color}">${ch}</span>] <span class="msg-body">${body}</span>`;
+    // Remove placeholder
+    const placeholder = feed.querySelector('div:not(.msg)');
+    if (placeholder) placeholder.remove();
+    feed.prepend(div);
+    msgCount++;
+    document.getElementById('msgCount').textContent = msgCount;
+  }
+
+  function renderChannels() {
+    const list = document.getElementById('channelList');
+    const entries = Object.entries(channelStats);
+    if (entries.length === 0) { list.innerHTML = '<div class="empty">No messages published yet.</div>'; return; }
+    list.innerHTML = '';
+    entries.forEach(([ch, stat]) => {
+      const div = document.createElement('div');
+      div.className = 'channel-card';
+      div.innerHTML = `
+        <div class="channel-dot ${subscriptions.has(ch) ? 'active' : ''}"></div>
+        <div class="channel-name">${ch}</div>
+        <div class="sub-count">${stat.count} msg${stat.count !== 1 ? 's' : ''}</div>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  let autoCount = 0;
+  const autoMessages = ['user_login', 'page_view', 'purchase', 'error_404', 'api_call', 'cache_miss', 'db_query'];
+  const autoChannels = ['news:breaking', 'chat:general', 'alerts:system', 'events:user'];
+
+  function autoPublish() {
+    if (autoInterval) {
+      clearInterval(autoInterval);
+      autoInterval = null;
+      document.getElementById('autoBtn').textContent = '▶ Auto-publish';
+    } else {
+      autoInterval = setInterval(() => {
+        document.getElementById('pubChannel').value = autoChannels[autoCount % autoChannels.length];
+        document.getElementById('pubMsg').value = autoMessages[autoCount % autoMessages.length] + '_' + autoCount;
+        publish();
+        autoCount++;
+      }, 900);
+      document.getElementById('autoBtn').textContent = '⏹ Stop Auto';
+    }
+  }
+
+  // ---- RATE LIMITER ----
+  const ipCounters = {}; // ip -> { count, windowStart, blocked }
+  let totalAllowed = 0, totalBlocked = 0, totalReqs = 0;
+
+  function getMax() { return parseInt(document.getElementById('maxReqs').value) || 10; }
+  function getWindow() { return (parseInt(document.getElementById('windowSec').value) || 10) * 1000; }
+
+  function makeRequest() {
+    const ip = document.getElementById('reqIP').value;
+    const now = Date.now();
+    const max = getMax();
+    const win = getWindow();
+
+    if (!ipCounters[ip]) ipCounters[ip] = { count: 0, windowStart: now };
+
+    const counter = ipCounters[ip];
+    if (now - counter.windowStart > win) {
+      counter.count = 0;
+      counter.windowStart = now;
+    }
+    counter.count++;
+    totalReqs++;
+
+    if (counter.count > max) {
+      totalBlocked++;
+      counter.blocked = true;
+    } else {
+      totalAllowed++;
+      counter.blocked = false;
+    }
+
+    document.getElementById('totalAllowed').textContent = totalAllowed;
+    document.getElementById('totalBlocked').textContent = totalBlocked;
+    document.getElementById('totalReqs').textContent = totalReqs;
+    renderIPs();
+  }
+
+  function spam5() { for (let i = 0; i < 5; i++) makeRequest(); }
+  function spam20() { for (let i = 0; i < 20; i++) makeRequest(); }
+  function resetAll() {
+    for (const k in ipCounters) delete ipCounters[k];
+    totalAllowed = totalBlocked = totalReqs = 0;
+    document.getElementById('totalAllowed').textContent = 0;
+    document.getElementById('totalBlocked').textContent = 0;
+    document.getElementById('totalReqs').textContent = 0;
+    renderIPs();
+  }
+
+  function renderIPs() {
+    const list = document.getElementById('ipList');
+    const entries = Object.entries(ipCounters);
+    if (entries.length === 0) { list.innerHTML = '<div class="empty">No requests yet. Send some!</div>'; return; }
+    const max = getMax();
+    list.innerHTML = '';
+    entries.forEach(([ip, counter]) => {
+      const pct = Math.min(100, (counter.count / max) * 100);
+      const blocked = counter.count > max;
+      const fillClass = pct >= 100 ? 'full' : pct >= 70 ? 'warn' : '';
+      const div = document.createElement('div');
+      div.className = 'ip-card' + (blocked ? ' blocked' : '');
+      const rem = Math.max(0, Math.ceil((getWindow() - (Date.now() - counter.windowStart)) / 1000));
+      div.innerHTML = `
+        <div class="ip-header">
+          <div class="ip-name">${ip}</div>
+          <div class="ip-badge ${blocked ? 'blocked' : ''}">${blocked ? '429 BLOCKED' : '200 OK'}</div>
+        </div>
+        <div class="rate-bar"><div class="rate-fill ${fillClass}" style="width:${pct}%"></div></div>
+        <div class="rate-info"><span>${counter.count} / ${max} requests</span><span>window resets in ~${rem}s</span></div>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  // Refresh TTL countdown
+  setInterval(renderIPs, 1000);
+</script>
+</body>
+</html>
