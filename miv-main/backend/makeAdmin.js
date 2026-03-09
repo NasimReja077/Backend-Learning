@@ -1,43 +1,31 @@
-require('dotenv').config();
-const mongoose = require('mongoose');
-const userModel = require('./src/models/auth.model');
+import "dotenv/config";
+import mongoose from "mongoose";
+import User from "./src/models/user.model.js";
 
-async function makeUserAdmin() {
-    try {
-        // Connect to MongoDB
-        await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ Connected to MongoDB');
+const makeAdmin = async () => {
+  const email = process.argv[2];
 
-        // Get email from command line argument
-        const email = process.argv[2];
+  if (!email) {
+    console.error("Usage: node makeAdmin.js <email>");
+    process.exit(1);
+  }
 
-        if (!email) {
-            console.log('❌ Please provide an email address');
-            console.log('Usage: node makeAdmin.js <email>');
-            process.exit(1);
-        }
+  await mongoose.connect(process.env.MONGO_URI);
+  console.log("✅ Connected to MongoDB");
 
-        // Find user by email
-        const user = await userModel.findOne({ email });
+  const user = await User.findOne({ email });
+  if (!user) {
+    console.error(`❌ No user found with email: ${email}`);
+    process.exit(1);
+  }
 
-        if (!user) {
-            console.log(`❌ User with email "${email}" not found`);
-            process.exit(1);
-        }
+  user.role = "admin";
+  await user.save();
+  console.log(`✅ ${user.username} (${user.email}) is now an admin!`);
+  console.log("Please log out and log back in for the change to take effect.");
 
-        // Update role to admin
-        user.role = 'admin';
-        await user.save();
+  await mongoose.disconnect();
+  process.exit(0);
+};
 
-        console.log(`✅ User "${user.username}" (${user.email}) is now an ADMIN!`);
-        console.log('Please logout and login again to refresh your session.');
-
-    } catch (error) {
-        console.error('❌ Error:', error.message);
-    } finally {
-        await mongoose.disconnect();
-        process.exit(0);
-    }
-}
-
-makeUserAdmin();
+makeAdmin().catch((e) => { console.error(e); process.exit(1); });

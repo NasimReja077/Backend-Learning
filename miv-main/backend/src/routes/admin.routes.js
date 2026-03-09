@@ -1,20 +1,15 @@
-const { Router } = require("express")
-const { adminMiddleware, identifyUser } = require("../middlewares/authMiddleware")
-const { getAllUsers, banUser, deleteUser } = require("../controllers/admin.controller")
+import { Router } from "express";
+import { getAllUsers, deleteUser, toggleBanUser, promoteUser } from "../controllers/admin.controller.js";
+import { protect } from "../middlewares/auth.middleware.js";
+import { adminOnly } from "../middlewares/auth.middleware.js";
 
-const AdminRouter = Router()
+const router = Router();
 
-/**
- * @route Get Admin Dashboard
- * @route /api/admin/dashboard
- * @access Admin
- * */
-AdminRouter.get("/users", identifyUser, adminMiddleware, getAllUsers)
+router.use(protect, adminOnly);
 
-AdminRouter.patch("/users/:id/ban", identifyUser, adminMiddleware, banUser)
+router.get("/users", getAllUsers);
+router.delete("/users/:id",           deleteUser);
+router.patch("/users/:id/ban",        toggleBanUser);
+router.patch("/users/:id/promote",    promoteUser);
 
-AdminRouter.delete("/users/:id", identifyUser, adminMiddleware, deleteUser)
-
-
-
-module.exports = AdminRouter
+export default router;

@@ -1,152 +1,110 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { fetchMovieDetails, fetchTrendingMovies, fetchCustomMovies, fetchCustomMovieById } from "../api/movie.api";
+import {
+  fetchTrending, fetchCustom, fetchCustomById,
+  fetchMovieDetail, fetchTVDetail,
+} from "../api/movie.api.js";
 
 const readMyList = () => {
-    try {
-        const storedList = localStorage.getItem("pixelflix-my-list");
-        return storedList ? JSON.parse(storedList) : [];
-    } catch {
-        return [];
-    }
+  try { return JSON.parse(localStorage.getItem("flixora-my-list") || "[]"); }
+  catch { return []; }
 };
-
 const writeMyList = (list) => {
-    try {
-        localStorage.setItem("pixelflix-my-list", JSON.stringify(list));
-    } catch {
-        // Ignore storage write failures.
-    }
+  try { localStorage.setItem("flixora-my-list", JSON.stringify(list)); }
+  catch { /* ignore */ }
 };
 
-export const loadTrendingMovies = createAsyncThunk(
-    "movies/loadTrendingMovies",
-    async (page = 1) => {
-        const data = await fetchTrendingMovies(page);
-        return {
-            page,
-            movies: Array.isArray(data) ? data : [],
-        };
-    },
-);
+// ─── Thunks ──────────────────────────────────────────────────────────────────
+export const loadTrending = createAsyncThunk("movies/loadTrending", async (page = 1) => {
+  const data = await fetchTrending(page);
+  return { page, results: data.results || [] };
+});
 
-export const loadCustomMovies = createAsyncThunk(
-    "movies/loadCustomMovies",
-    async () => {
-        const customMovies = await fetchCustomMovies();
-        return customMovies;
-    },
-);
+export const loadCustomMovies = createAsyncThunk("movies/loadCustom", async () => {
+  const data = await fetchCustom();
+  return data.movies || [];
+});
 
-export const loadMovieDetails = createAsyncThunk(
-    "movies/loadMovieDetails",
-    async (id, { getState }) => {
-        // Check if this is a custom movie ID (MongoDB _id format)
-        const state = getState();
-        const isCustomMovie = state.movies.customMovies.some(movie => movie.id === id);
+export const loadMovieDetails = createAsyncThunk("movies/loadDetails", async ({ id, type }, { getState }) => {
+  const state = getState().movies;
+  const isCustom = state.customMovies.some((m) => m.id === id || m._id === id);
+  if (isCustom) {
+    const data = await fetchCustomById(id);
+    return transformCustom(data.movie);
+  }
+  if (type === "tv") return fetchTVDetail(id);
+  return fetchMovieDetail(id);
+});
 
-        if (isCustomMovie) {
-            const data = await fetchCustomMovieById(id);
-            return data;
-        } else {
-            const data = await fetchMovieDetails(id);
-            return data;
-        }
-    },
-);
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+export const transformCustom = (m) => ({
+  id: m._id,
+  title: m.title,
+  overview: m.description || "",
+  poster_path: m.poster || null,
+  backdrop_path: m.poster || null,
+  release_date: m.releaseDate || "",
+  vote_average: 0,
+  genre_ids: [],
+  media_type: "movie",
+  isCustom: true,
+  customData: { trailer: m.trailer, genre: m.genre, category: m.category },
+});
 
-const initialState = {
+// ─── Slice ────────────────────────────────────────────────────────────────────
+const moviesSlice = createSlice({
+  name: "movies",
+  initialState: {
     movies: [],
     customMovies: [],
+    selectedMovie: null,
+    myList: readMyList(),
     page: 1,
     hasMore: true,
     loading: false,
     loadingMore: false,
-    error: "",
-    selectedMovie: null,
+    error: null,
     detailsLoading: false,
-    detailsError: "",
-    myList: readMyList().filter((item) => item && item.media_type !== "tv"),
-};
-
-const moviesSlice = createSlice({
-    name: "movies",
-    initialState,
-    reducers: {
-        clearSelectedMovie(state) {
-            state.selectedMovie = null;
-        },
-        toggleMyList(state, action) {
-            const movie = action.payload;
-            if (!movie?.id || movie.media_type === "tv") {
-                return;
-            }
-
-            const exists = state.myList.some((item) => item.id === movie.id);
-            if (exists) {
-                state.myList = state.myList.filter((item) => item.id !== movie.id);
-            } else {
-                state.myList = [movie, ...state.myList];
-            }
-
-            writeMyList(state.myList.filter((item) => item && item.media_type !== "tv"));
-        },
+    detailsError: null,
+  },
+  reducers: {
+    clearSelectedMovie: (s) => { s.selectedMovie = null; },
+    toggleMyList: (s, { payload: movie }) => {
+      if (!movie?.id) return;
+      const idx = s.myList.findIndex((m) => m.id === movie.id);
+      if (idx >= 0) s.myList.splice(idx, 1);
+      else s.myList.unshift(movie);
+      writeMyList(s.myList);
     },
-    extraReducers: (builder) => {
-        builder
-            .addCase(loadTrendingMovies.pending, (state, action) => {
-                if ((action.meta.arg || 1) > 1) {
-                    state.loadingMore = true;
-                } else {
-                    state.loading = true;
-                }
-                state.error = "";
-            })
-            .addCase(loadTrendingMovies.fulfilled, (state, action) => {
-                const { page, movies } = action.payload;
-
-                if (page > 1) {
-                    const seenIds = new Set(state.movies.map((movie) => movie.id));
-                    const nextUnique = movies.filter((movie) => !seenIds.has(movie.id));
-                    state.movies = [...state.movies, ...nextUnique];
-                } else {
-                    state.movies = movies;
-                }
-
-                state.page = page;
-                state.hasMore = movies.length > 0;
-                state.loading = false;
-                state.loadingMore = false;
-            })
-            .addCase(loadTrendingMovies.rejected, (state, action) => {
-                state.error = action.error.message || "Unable to load movies";
-                state.loading = false;
-                state.loadingMore = false;
-            })
-            .addCase(loadMovieDetails.pending, (state) => {
-                state.detailsLoading = true;
-                state.detailsError = "";
-            })
-            .addCase(loadMovieDetails.fulfilled, (state, action) => {
-                state.selectedMovie = action.payload;
-                state.detailsLoading = false;
-            })
-            .addCase(loadMovieDetails.rejected, (state, action) => {
-                state.detailsError = action.error.message || "Unable to load movie details";
-                state.detailsLoading = false;
-            })
-            .addCase(loadCustomMovies.pending, (state) => {
-                // Custom movies load silently, no loading state change
-            })
-            .addCase(loadCustomMovies.fulfilled, (state, action) => {
-                state.customMovies = action.payload;
-            })
-            .addCase(loadCustomMovies.rejected, (state, action) => {
-                // Silently fail, log to console
-                console.error("Failed to load custom movies:", action.error.message);
-            });
-    },
+  },
+  extraReducers: (b) => {
+    b
+      .addCase(loadTrending.pending, (s, a) => {
+        (a.meta.arg || 1) > 1 ? (s.loadingMore = true) : (s.loading = true);
+        s.error = null;
+      })
+      .addCase(loadTrending.fulfilled, (s, { payload: { page, results } }) => {
+        if (page > 1) {
+          const ids = new Set(s.movies.map((m) => m.id));
+          s.movies.push(...results.filter((m) => !ids.has(m.id)));
+        } else {
+          s.movies = results;
+        }
+        s.page = page;
+        s.hasMore = results.length >= 20;
+        s.loading = s.loadingMore = false;
+      })
+      .addCase(loadTrending.rejected, (s, a) => {
+        s.error = a.error.message;
+        s.loading = s.loadingMore = false;
+      })
+      .addCase(loadCustomMovies.fulfilled, (s, { payload }) => {
+        s.customMovies = payload.map(transformCustom);
+      })
+      .addCase(loadMovieDetails.pending,   (s) => { s.detailsLoading = true; s.detailsError = null; })
+      .addCase(loadMovieDetails.fulfilled, (s, { payload }) => { s.selectedMovie = payload; s.detailsLoading = false; })
+      .addCase(loadMovieDetails.rejected,  (s, a) => { s.detailsError = a.error.message; s.detailsLoading = false; });
+  },
 });
 
 export const { clearSelectedMovie, toggleMyList } = moviesSlice.actions;
-
 export default moviesSlice.reducer;

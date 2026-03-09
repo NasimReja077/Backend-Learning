@@ -1,37 +1,70 @@
-const express = require('express');
-const cors = require('cors');
-const authRouter = require('./routes/auth.route');
-const movieRouter = require('./routes/movie.routes');
-const favRouter = require('./routes/favorite.routes');
-const cookieParser = require('cookie-parser');
-const historyRouter = require('./routes/history.routes');
-const AdminRouter = require('./routes/admin.routes');
-const movieCreateRouter = require('./routes/adminMovie.routes');
+import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+
+import authRouter from "./routes/auth.routes.js";
+import movieRouter from "./routes/movie.routes.js";
+import favoriteRouter from "./routes/favorite.routes.js";
+import historyRouter from "./routes/history.routes.js";
+import adminRouter from "./routes/admin.routes.js";
+import adminMovieRouter from "./routes/adminMovie.routes.js";
+import reviewRouter from "./routes/review.routes.js";
+import profileRouter from "./routes/profile.routes.js";
+
+import { globalRateLimiter } from "./middlewares/rateLimiter.middleware.js";
+
 const app = express();
-app.use(express.static('public'))
 
-// middlewares
-app.use(cors({
-    origin: 'http://localhost:5173',
-    credentials: true
-}));
-app.use(express.json());
+// ─── Middlewares ─────────────────────────────────────────────────────────────
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
+app.use(express.static("public"));
 
-// auth routes
-app.use('/api/auth', authRouter);
+// Global rate limiter
+app.use(globalRateLimiter);
 
-// movie routes
-app.use('/api/movies', movieRouter)
+// ─── Routes ──────────────────────────────────────────────────────────────────
+app.use("/api/auth", authRouter);
+app.use("/api/movies", movieRouter);
+app.use("/api/favorites", favoriteRouter);
+app.use("/api/history", historyRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/admin/movies", adminMovieRouter);
+app.use("/api/reviews", reviewRouter);
+app.use("/api/profile", profileRouter);
 
-// favorite routes
-app.use('/api/favorites', favRouter)
+// ─── Health Check ─────────────────────────────────────────────────────────────
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok", app: "Flixora", timestamp: new Date().toISOString() });
+});
 
-// history routes
-app.use("/api/history", historyRouter)
+// ─── 404 Handler ─────────────────────────────────────────────────────────────
+app.use((_req, res) => {
+  res.status(404).json({ success: false, message: "Route not found" });
+});
 
-// admin routes
-app.use("/api/admin", AdminRouter)
-// admin movie routes
-app.use("/api/admin/movies", movieCreateRouter)
-module.exports = app;
+// ─── Global Error Handler ─────────────────────────────────────────────────────
+app.use((err, _req, res, _next) => {
+  const statusCode = err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+
+  res.status(statusCode).json({
+    success: false,
+    message,
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+  });
+});
+
+
+app.use('*name', (req, res)=> {
+  res.sendFile(path.join(__dirname, "../public/index.html"))
+});
+
+export default app;

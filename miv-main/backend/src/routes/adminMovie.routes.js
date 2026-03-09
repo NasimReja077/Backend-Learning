@@ -1,15 +1,17 @@
-const { Router } = require('express');
-const { createMovie, updateMovie, deleteMovie, getAllMovies } = require('../controllers/adminMovie.controller');
-const { adminMiddleware, identifyUser } = require('../middlewares/authMiddleware');
-const movieCreateRouter = Router();
+import { Router } from "express";
+import {
+  getAllMovies, createMovie, updateMovie, deleteMovie, movieFormValidators,
+} from "../controllers/adminMovie.controller.js";
+import { protect, adminOnly } from "../middlewares/auth.middleware.js";
+import { validate } from "../middlewares/validate.middleware.js";
 
-movieCreateRouter.post("/create", identifyUser, adminMiddleware, createMovie)
+const router = Router();
 
-movieCreateRouter.put("/:id", identifyUser, adminMiddleware, updateMovie)
+router.use(protect, adminOnly);
 
-movieCreateRouter.delete("/:id", identifyUser, adminMiddleware, deleteMovie)
+router.get("/",          getAllMovies);
+router.post("/",         movieFormValidators, validate, createMovie);
+router.put("/:id",       movieFormValidators, validate, updateMovie);
+router.delete("/:id",    deleteMovie);
 
-movieCreateRouter.get("/", identifyUser, adminMiddleware, getAllMovies)
-
-
-module.exports = movieCreateRouter
+export default router;

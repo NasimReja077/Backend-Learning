@@ -1,0 +1,92 @@
+.genre-page {
+  min-height: 100vh;
+  background: radial-gradient(circle at 80% 10%, rgba(229,9,20,0.15), transparent 30%), #070707;
+  color: #fff;
+}
+
+.genre-picker {
+  padding: 2rem clamp(1rem, 3vw, 2.5rem);
+
+  .genre-picker-header {
+    margin-bottom: 2rem;
+    .catalog-kicker { margin: 0; font-size: 0.75rem; font-weight: 800; color: #ff777e; letter-spacing: 0.18em; text-transform: uppercase; }
+    h1 { margin: 0.4rem 0 0; font-size: clamp(2rem, 5vw, 3.2rem); }
+    p  { margin: 0.5rem 0 0; color: #aaa; }
+  }
+}
+
+.genre-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.genre-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 1.8rem 1rem;
+  border-radius: 0.75rem;
+  background: rgba(16,16,16,0.85);
+  border: 1px solid rgba(255,255,255,0.09);
+  cursor: pointer;
+  transition: transform 0.22s, border-color 0.22s, background 0.22s;
+  animation: fadeUp 0.4s ease both;
+
+  &:hover {
+    transform: translateY(-5px) scale(1.02);
+    border-color: rgba(229,9,20,0.4);
+    background: rgba(229,9,20,0.07);
+  }
+
+  .genre-icon { font-size: 2.2rem; }
+  .genre-name { font-weight: 700; font-size: 0.95rem; text-align: center; }
+}
+
+.genre-movies {
+  padding: 0 0 3rem;
+
+  .genre-movies-header {
+    padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 1rem;
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 0.45rem;
+      color: #ccc;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+      margin-bottom: 1rem;
+      transition: background 0.2s;
+      &:hover { background: rgba(255,255,255,0.13); color: #fff; }
+    }
+
+    .catalog-kicker { margin: 0; font-size: 0.75rem; font-weight: 800; color: #ff777e; letter-spacing: 0.18em; text-transform: uppercase; }
+    h1 { margin: 0.4rem 0 0; font-size: clamp(2rem, 5vw, 3rem); }
+  }
+}
+
+.genre-state {
+  padding: 1rem clamp(1rem, 3vw, 2.5rem);
+  color: #bbb;
+  &.muted { color: #666; text-align: center; }
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  animation: fadeUp 0.4s ease both;
+}
+
+@media (max-width: 640px) {
+  .genre-grid { grid-template-columns: repeat(2, 1fr); }
+  .catalog-grid { grid-template-columns: repeat(2, 1fr); gap: 0.65rem; }
+}

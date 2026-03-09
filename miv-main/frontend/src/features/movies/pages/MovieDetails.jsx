@@ -1,348 +1,234 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Navbar from "../../components/Navbar";
-import { useAuth } from "../../auth/hooks/useAuth";
-import { useMovies } from "../hooks/useMovies";
-import { addToHistory } from "../api/history.api";
-import "../styles/movieDetails.scss";
+import { FiPlay, FiPlus, FiCheck, FiArrowLeft, FiClock, FiHeart } from "react-icons/fi";
+import toast from "react-hot-toast";
+import Navbar from "../../components/Navbar.jsx";
+import ReviewSection from "../../reviews/components/ReviewSection.jsx";
+import { useMovies } from "../hooks/useMovies.js";
+import { addHistory, addFavorite, removeFavorite, checkFavorite } from "../api/user.api.js";
+import { getPosterUrl } from "../../components/MovieCard.jsx";
+import "./MovieDetails.scss";
 
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w1280";
-const TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w500";
+const TMDB_IMG = "https://image.tmdb.org/t/p/w1280";
 
-const MovieDetails = () => {
+export const MovieDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [showTrailerModal, setShowTrailerModal] = useState(false);
-  const [addedToWatchLater, setAddedToWatchLater] = useState(false);
-  const { logout } = useAuth();
-  const {
-    selectedMovie,
-    detailsLoading,
-    detailsError,
-    fetchMovieDetails,
-    clearSelectedMovie,
-    toggleMyList,
-    isInMyList,
-  } = useMovies();
+  const { selectedMovie, detailsLoading, detailsError, fetchDetails, clearDetails, toggleList, isInMyList } = useMovies();
+  const [trailerKey, setTrailerKey] = useState(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      fetchMovieDetails(id);
-    }
+    if (id) fetchDetails(id, "movie");
+    return () => clearDetails();
+  }, [id]);
 
-    return () => {
-      clearSelectedMovie();
-    };
-  }, [id, fetchMovieDetails, clearSelectedMovie]);
+  useEffect(() => {
+    if (!selectedMovie) return;
+    checkFavorite(id)
+      .then((d) => setIsFavorite(d?.isFavorite || false))
+      .catch(() => {});
 
-  const handleNavbarNavigate = (target) => {
-    if (target === "home") navigate("/");
-    if (target === "movies") navigate("/movies");
-    if (target === "my-list") navigate("/my-list");
-    if (target === "watch-later") navigate("/watch-later");
-  };
+    // Track watch history
+    addHistory(id, {
+      title: selectedMovie.title || selectedMovie.name,
+      poster_path: selectedMovie.poster_path,
+    }).catch(() => {});
+  }, [selectedMovie]);
 
-  const handleLogout = async () => {
+  const handleToggleFavorite = async () => {
+    setFavLoading(true);
     try {
-      await logout();
-    } finally {
-      navigate("/login");
-    }
-  };
-
-  const handleAddToWatchLater = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      await addToHistory(id, token);
-      setAddedToWatchLater(true);
-      setTimeout(() => setAddedToWatchLater(false), 2000); // Reset after 2 seconds
-    } catch (error) {
-      console.error("Failed to add to watch later:", error);
-    }
+      if (isFavorite) {
+        await removeFavorite(id);
+        setIsFavorite(false);
+        toast.success("Removed from favorites");
+      } else {
+        await addFavorite(id, { title: selectedMovie?.title, poster_path: selectedMovie?.poster_path });
+        setIsFavorite(true);
+        toast.success("Added to favorites ❤️");
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Failed");
+    } finally { setFavLoading(false); }
   };
 
   if (detailsLoading) {
     return (
-      <main className="details-page">
-        <Navbar
-          isAuthView={false}
-          activeLink="movies"
-          onNavigate={handleNavbarNavigate}
-          onLogout={handleLogout}
-        />
-        <div className="details-loading">
-          <p>Loading movie details...</p>
-        </div>
-      </main>
+      <div className="details-page">
+        <Navbar activeLink="movies" />
+        <div className="details-center"><p>Loading movie details…</p></div>
+      </div>
     );
   }
 
   if (detailsError || !selectedMovie) {
     return (
-      <main className="details-page">
-        <Navbar
-          isAuthView={false}
-          activeLink="movies"
-          onNavigate={handleNavbarNavigate}
-          onLogout={handleLogout}
-        />
-        <div className="details-error">
+      <div className="details-page">
+        <Navbar activeLink="movies" />
+        <div className="details-center">
           <p>{detailsError || "Movie not found"}</p>
-          <button className="btn btn-lg" onClick={() => navigate("/")}>
-            Back to Home
-          </button>
+          <button className="btn btn-primary btn-md" onClick={() => navigate("/")}>Go Home</button>
         </div>
-      </main>
+      </div>
     );
   }
 
-  // Check if this is a custom movie (from our database)
-  const isCustomMovie = selectedMovie.isCustom || false;
+  const m = selectedMovie;
+  const isCustom = m.isCustom || false;
+  const backdrop = isCustom
+    ? (m.backdrop_path && !m.backdrop_path.startsWith("/") ? m.backdrop_path : null)
+    : (m.backdrop_path ? `${TMDB_IMG}${m.backdrop_path}` : null);
 
-  const backdropUrl = selectedMovie.backdrop_path
-    ? isCustomMovie && !selectedMovie.backdrop_path.startsWith("/")
-      ? selectedMovie.backdrop_path
-      : `${TMDB_IMAGE_BASE}${selectedMovie.backdrop_path}`
-    : "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1920&q=80";
+  const trailer = m.videos?.results?.find((v) => v.type === "Trailer" && v.site === "YouTube")
+    || m.videos?.results?.[0];
+  const customTrailer = isCustom && m.customData?.trailer;
 
-  const posterUrl = selectedMovie.poster_path
-    ? isCustomMovie && !selectedMovie.poster_path.startsWith("/")
-      ? selectedMovie.poster_path
-      : `${TMDB_POSTER_BASE}${selectedMovie.poster_path}`
-    : "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=500&q=80";
-
-  const releaseYear = selectedMovie.release_date
-    ? new Date(selectedMovie.release_date).getFullYear()
-    : "N/A";
-  const runtime = selectedMovie.runtime
-    ? `${selectedMovie.runtime} min`
-    : isCustomMovie
-      ? "-"
-      : "N/A";
-  const rating = selectedMovie.vote_average
-    ? selectedMovie.vote_average.toFixed(1)
-    : isCustomMovie
-      ? "New Release"
-      : "N/A";
-
-  const firstTrailer =
-    selectedMovie?.videos?.results?.find(
-      (video) => video.type === "Trailer" && video.site === "YouTube",
-    ) || selectedMovie?.videos?.results?.[0];
-
-  const customTrailer = isCustomMovie && selectedMovie.customData?.trailer;
-
-  const handlePlayTrailer = () => {
-    if (firstTrailer) {
-      setShowTrailerModal(true);
-    } else if (customTrailer) {
-      // Open custom trailer URL in new tab
-      window.open(customTrailer, "_blank");
-    }
+  const handlePlay = () => {
+    if (trailer) { setTrailerKey(trailer.key); return; }
+    if (customTrailer) { window.open(customTrailer, "_blank"); return; }
+    toast.error("Trailer not available for this movie.");
   };
 
-  const closeTrailerModal = () => {
-    setShowTrailerModal(false);
-  };
+  const inList = isInMyList(m.id);
+  const releaseYear = m.release_date ? new Date(m.release_date).getFullYear() : "N/A";
 
   return (
-    <main className="details-page">
-      <Navbar
-        isAuthView={false}
-        activeLink="movies"
-        onNavigate={handleNavbarNavigate}
-        onLogout={handleLogout}
-      />
+    <div className="details-page">
+      <Navbar activeLink="movies" />
 
       <section
         className="details-hero"
-        style={{ backgroundImage: `url(${backdropUrl})` }}
+        style={{ backgroundImage: backdrop ? `url(${backdrop})` : "none" }}
       >
         <div className="details-overlay" />
-
-        <div className="details-content">
+        <div className="details-body">
           <div className="details-poster">
-            <img
-              src={posterUrl}
-              alt={selectedMovie.title || selectedMovie.name}
-            />
+            <img src={getPosterUrl(m)} alt={m.title || m.name} />
           </div>
 
-          <div className="details-info">
-            <h1>{selectedMovie.title || selectedMovie.name || "Untitled"}</h1>
+          <div className="details-info animate-fadeUp">
+            {isCustom && <span className="custom-pill">Custom Movie</span>}
+            <h1>{m.title || m.name || "Untitled"}</h1>
+            {m.tagline && <p className="tagline">"{m.tagline}"</p>}
 
-            {selectedMovie.tagline && (
-              <p className="details-tagline">{selectedMovie.tagline}</p>
-            )}
-
-            <div className="details-meta">
+            <div className="meta-row">
               <span>{releaseYear}</span>
-              {runtime !== "-" && <span>{runtime}</span>}
-              <span>
-                ⭐ {rating}
-                {typeof rating === "number" ? "/10" : ""}
-              </span>
-              {selectedMovie.status && (
-                <span className="details-status">{selectedMovie.status}</span>
-              )}
-              {isCustomMovie && (
-                <span className="custom-badge">Custom Movie</span>
-              )}
+              {m.runtime > 0 && <span>{m.runtime} min</span>}
+              {m.vote_average > 0 && <span>⭐ {m.vote_average.toFixed(1)}/10</span>}
+              {m.status && <span className="status-pill">{m.status}</span>}
             </div>
 
-            {selectedMovie.genres && selectedMovie.genres.length > 0 && (
-              <div className="details-genres">
-                {selectedMovie.genres.map((genre) => (
-                  <span key={genre.id || genre.name} className="genre-tag">
-                    {genre.name}
-                  </span>
-                ))}
+            {m.genres?.length > 0 && (
+              <div className="genre-chips">
+                {m.genres.map((g) => <span key={g.id} className="genre-chip">{g.name}</span>)}
               </div>
             )}
-
-            {isCustomMovie && selectedMovie.customData?.genre && (
-              <div className="details-genres">
-                <span className="genre-tag">
-                  {selectedMovie.customData.genre}
-                </span>
-              </div>
+            {isCustom && m.customData?.genre && (
+              <div className="genre-chips"><span className="genre-chip">{m.customData.genre}</span></div>
             )}
 
-            <div className="details-overview">
+            <div className="overview">
               <h3>Overview</h3>
-              <p>{selectedMovie.overview || "No overview available."}</p>
+              <p>{m.overview || "No overview available."}</p>
             </div>
-
-            {isCustomMovie && selectedMovie.customData?.category && (
-              <div className="details-category">
-                <strong>Category:</strong> {selectedMovie.customData.category}
-              </div>
-            )}
 
             <div className="details-actions">
               <button
-                className="btn btn-lg details-btn-play"
-                type="button"
-                onClick={handlePlayTrailer}
-                disabled={!firstTrailer && !customTrailer}
+                className="btn btn-white btn-lg"
+                onClick={handlePlay}
+                disabled={!trailer && !customTrailer}
               >
-                ▶ Play{" "}
-                {firstTrailer || customTrailer ? "Trailer" : "(No Trailer)"}
+                <FiPlay /> {trailer || customTrailer ? "Play Trailer" : "No Trailer"}
               </button>
               <button
-                className="btn btn-lg details-btn-secondary"
-                type="button"
-                onClick={() => toggleMyList(selectedMovie)}
+                className={`btn btn-lg ${isFavorite ? "btn-danger" : "btn-outline"}`}
+                onClick={handleToggleFavorite}
+                disabled={favLoading}
               >
-                {isInMyList(selectedMovie.id)
-                  ? "- Remove from My List"
-                  : "+ My List"}
+                <FiHeart /> {isFavorite ? "Unfavorite" : "Favorite"}
               </button>
               <button
-                className="btn btn-lg details-btn-secondary"
-                type="button"
-                onClick={handleAddToWatchLater}
+                className={`btn btn-lg ${inList ? "btn-outline" : "btn-outline"}`}
+                onClick={() => toggleList(m)}
               >
-                {addedToWatchLater ? "✓ Added to Watch Later" : "⏱ Watch Later"}
+                {inList ? <><FiCheck /> In My List</> : <><FiPlus /> My List</>}
               </button>
-              <button
-                className="btn btn-lg details-btn-secondary"
-                onClick={() => navigate("/")}
-              >
-                ← Back
+              <button className="btn btn-ghost btn-lg" onClick={() => navigate(-1)}>
+                <FiArrowLeft /> Back
               </button>
             </div>
           </div>
         </div>
       </section>
 
+      {/* Extra Info */}
       <section className="details-extra">
-        <div className="details-grid">
-          {selectedMovie.production_companies &&
-            selectedMovie.production_companies.length > 0 && (
-              <div className="details-block">
-                <h3>Production</h3>
-                <ul>
-                  {selectedMovie.production_companies
-                    .slice(0, 5)
-                    .map((company) => (
-                      <li key={company.id || company.name}>{company.name}</li>
-                    ))}
-                </ul>
-              </div>
-            )}
-
-          {selectedMovie.budget && selectedMovie.budget > 0 && (
-            <div className="details-block">
-              <h3>Budget</h3>
-              <p>${(selectedMovie.budget / 1000000).toFixed(1)}M</p>
-            </div>
-          )}
-
-          {selectedMovie.revenue && selectedMovie.revenue > 0 && (
-            <div className="details-block">
-              <h3>Revenue</h3>
-              <p>${(selectedMovie.revenue / 1000000).toFixed(1)}M</p>
-            </div>
-          )}
-
-          {selectedMovie.spoken_languages &&
-            selectedMovie.spoken_languages.length > 0 && (
-              <div className="details-block">
-                <h3>Languages</h3>
-                <p>
-                  {selectedMovie.spoken_languages
-                    .map((lang) => lang.english_name || lang.name)
-                    .join(", ")}
-                </p>
-              </div>
-            )}
-        </div>
-
-        {selectedMovie.videos &&
-          selectedMovie.videos.results &&
-          selectedMovie.videos.results.length > 0 && (
-            <div className="details-videos">
-              <h3>Videos & Trailers</h3>
-              <div className="video-grid">
-                {selectedMovie.videos.results.slice(0, 4).map((video) => (
-                  <div key={video.id || video.key} className="video-card">
-                    <iframe
-                      src={`https://www.youtube.com/embed/${video.key}`}
-                      title={video.name}
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                    <p>{video.name}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        {m.production_companies?.length > 0 && (
+          <div className="extra-block">
+            <h3>Production</h3>
+            <p>{m.production_companies.slice(0, 4).map((c) => c.name).join(", ")}</p>
+          </div>
+        )}
+        {m.budget > 0 && (
+          <div className="extra-block">
+            <h3>Budget</h3>
+            <p>${(m.budget / 1e6).toFixed(1)}M</p>
+          </div>
+        )}
+        {m.revenue > 0 && (
+          <div className="extra-block">
+            <h3>Revenue</h3>
+            <p>${(m.revenue / 1e6).toFixed(1)}M</p>
+          </div>
+        )}
+        {m.spoken_languages?.length > 0 && (
+          <div className="extra-block">
+            <h3>Languages</h3>
+            <p>{m.spoken_languages.map((l) => l.english_name || l.name).join(", ")}</p>
+          </div>
+        )}
       </section>
 
+      {/* Videos */}
+      {m.videos?.results?.length > 0 && (
+        <section className="details-videos">
+          <h3>Videos & Trailers</h3>
+          <div className="video-grid">
+            {m.videos.results.slice(0, 4).map((v) => (
+              <div key={v.key} className="video-card">
+                <iframe
+                  src={`https://www.youtube.com/embed/${v.key}`}
+                  title={v.name}
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+                <p>{v.name}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ─── Reviews Section (NEW FEATURE) ─── */}
+      <ReviewSection movieId={id} movieTitle={m.title || m.name} />
+
       {/* Trailer Modal */}
-      {showTrailerModal && firstTrailer && (
-        <div className="trailer-modal" onClick={closeTrailerModal}>
-          <div
-            className="trailer-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button className="trailer-close" onClick={closeTrailerModal}>
-              ✕
-            </button>
+      {trailerKey && (
+        <div className="trailer-modal" onClick={() => setTrailerKey(null)}>
+          <div className="trailer-modal-inner" onClick={(e) => e.stopPropagation()}>
+            <button className="trailer-close" onClick={() => setTrailerKey(null)}>✕</button>
             <iframe
-              src={`https://www.youtube.com/embed/${firstTrailer.key}?autoplay=1`}
-              title={firstTrailer.name}
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`}
+              title="Trailer"
               allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             />
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 };
 

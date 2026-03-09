@@ -1,12 +1,13 @@
-const { Router } = require("express")
-const historyRouter = Router()
+import { Router } from "express";
+import { getHistory, addHistory, clearHistory } from "../controllers/history.controller.js";
+import { protect } from "../middlewares/auth.middleware.js";
 
-const { addHistory, getHistory } = require("../controllers/history.controller")
-const { identifyUser } = require("../middlewares/authMiddleware")
+const router = Router();
 
+router.use(protect);
 
-historyRouter.post("/:movieId", identifyUser, addHistory)
+router.get("/",           getHistory);
+router.post("/:movieId",  addHistory);
+router.delete("/",        clearHistory);
 
-historyRouter.get("/", identifyUser, getHistory)
-
-module.exports = historyRouter
+export default router;

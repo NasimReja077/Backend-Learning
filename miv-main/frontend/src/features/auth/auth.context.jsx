@@ -1,129 +1,56 @@
 import {
-  createContext,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
+  createContext, useCallback, useContext,
+  useEffect, useMemo, useState,
 } from "react";
-import {
-  getMe,
-  loginUser,
-  logoutUser,
-  registerUser,
-} from "./services/auth.api";
+import api from "../../app/api.js";
 
-export const AuthContext = createContext(null);
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [error, setError] = useState("");
 
   useEffect(() => {
-    const bootstrapAuth = async () => {
-      try {
-        const data = await getMe();
-        setUser(data.user || null);
-      } catch {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+    api.get("/auth/me")
+      .then((res) => setUser(res.data.data?.user || null))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
+  }, []);
 
-    bootstrapAuth();
+  const login = useCallback(async (credentials) => {
+    const res = await api.post("/auth/login", credentials);
+    setUser(res.data.data?.user || null);
+    return res.data;
+  }, []);
+
+  const register = useCallback(async (payload) => {
+    const res = await api.post("/auth/register", payload);
+    setUser(res.data.data?.user || null);
+    return res.data;
+  }, []);
+
+  const logout = useCallback(async () => {
+    await api.post("/auth/logout");
+    setUser(null);
   }, []);
 
   const refreshUser = useCallback(async () => {
-    const data = await getMe();
-    setUser(data.user || null);
-    return data.user || null;
-  }, []);
-
-  const login = useCallback(
-    async (credentials) => {
-      setAuthLoading(true);
-      setError("");
-
-      try {
-        await loginUser(credentials);
-        const refreshedUser = await refreshUser();
-        const data = { user: refreshedUser };
-        return data;
-      } catch (err) {
-        setError(err.message || "Unable to login");
-        throw err;
-      } finally {
-        setAuthLoading(false);
-      }
-    },
-    [refreshUser],
-  );
-
-  const register = useCallback(
-    async (payload) => {
-      setAuthLoading(true);
-      setError("");
-
-      try {
-        await registerUser(payload);
-        const refreshedUser = await refreshUser();
-        const data = { user: refreshedUser };
-        return data;
-      } catch (err) {
-        setError(err.message || "Unable to register");
-        throw err;
-      } finally {
-        setAuthLoading(false);
-      }
-    },
-    [refreshUser],
-  );
-
-  const logout = useCallback(async () => {
-    setAuthLoading(true);
-    setError("");
-
-    try {
-      await logoutUser();
-      setUser(null);
-    } catch (err) {
-      setError(err.message || "Unable to logout");
-      throw err;
-    } finally {
-      setAuthLoading(false);
-    }
-  }, []);
-
-  const clearAuthError = useCallback(() => {
-    setError("");
+    const res = await api.get("/auth/me");
+    const u = res.data.data?.user || null;
+    setUser(u);
+    return u;
   }, []);
 
   const value = useMemo(
-    () => ({
-      user,
-      loading,
-      authLoading,
-      error,
-      login,
-      register,
-      logout,
-      clearAuthError,
-      refreshUser,
-    }),
-    [
-      user,
-      loading,
-      authLoading,
-      error,
-      login,
-      register,
-      logout,
-      clearAuthError,
-      refreshUser,
-    ],
+    () => ({ user, loading, login, register, logout, refreshUser }),
+    [user, loading, login, register, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 };

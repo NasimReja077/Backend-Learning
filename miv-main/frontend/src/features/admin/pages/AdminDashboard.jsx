@@ -1,575 +1,231 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../auth/hooks/useAuth";
-import {
-  banOrUnbanUser,
-  createAdminMovie,
-  editAdminMovie,
-  fetchAdminMovies,
-  fetchAdminUsers,
-  removeAdminMovie,
-  removeUser,
-} from "../services/admin.api";
-import "../styles/admin.scss";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { FiUsers, FiFilm, FiShield, FiSlash, FiTrash2, FiEdit2, FiLogOut } from "react-icons/fi";
+import toast from "react-hot-toast";
+import Navbar from "../../components/Navbar.jsx";
+import { useAuth } from "../../auth/auth.context.jsx";
+import api from "../../../app/api.js";
+import "./Admin.scss";
 
-const initialMovieForm = {
-  title: "",
-  description: "",
-  releaseDate: "",
-  trailer: "",
-  genre: "",
-  category: "",
-  poster: "",
-};
+const movieSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  releaseDate: z.string().optional(),
+  trailer: z.string().optional(),
+  genre: z.string().optional(),
+  category: z.string().optional(),
+  poster: z.string().optional(),
+});
+
+const TABS = ["users", "movies"];
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState("users");
+  const { user } = useAuth();
+  const [tab, setTab] = useState("users");
   const [users, setUsers] = useState([]);
   const [movies, setMovies] = useState([]);
-  const [usersLoading, setUsersLoading] = useState(true);
-  const [moviesLoading, setMoviesLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const [movieForm, setMovieForm] = useState(initialMovieForm);
-  const [editingMovieId, setEditingMovieId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editId, setEditId] = useState(null);
   const [userSearch, setUserSearch] = useState("");
   const [movieSearch, setMovieSearch] = useState("");
 
-  const adminName = user?.username || "Admin";
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(movieSchema),
+    defaultValues: { title: "", description: "", releaseDate: "", trailer: "", genre: "", category: "", poster: "" },
+  });
 
-  const handleApiError = (err, fallback) => {
-    if (err?.status === 401) {
-      navigate("/login");
-      return;
-    }
+  const posterUrl = watch("poster");
 
-    if (err?.status === 403) {
-      navigate("/");
-      return;
-    }
-
-    setError(err?.message || fallback);
-  };
-
-  const loadUsers = async () => {
-    setUsersLoading(true);
+  const loadData = async () => {
+    setLoading(true);
     try {
-      const data = await fetchAdminUsers();
-      setUsers(Array.isArray(data) ? data : []);
-    } catch (err) {
-      handleApiError(err, "Failed to load users");
-    } finally {
-      setUsersLoading(false);
-    }
+      const [u, m] = await Promise.all([
+        api.get("/admin/users").then(r => r.data.data.users),
+        api.get("/admin/movies").then(r => r.data.data.movies),
+      ]);
+      setUsers(u); setMovies(m);
+    } catch { toast.error("Failed to load admin data"); }
+    finally { setLoading(false); }
   };
 
-  const loadMovies = async () => {
-    setMoviesLoading(true);
-    try {
-      const data = await fetchAdminMovies();
-      setMovies(Array.isArray(data.movies) ? data.movies : []);
-    } catch (err) {
-      handleApiError(err, "Failed to load movies");
-    } finally {
-      setMoviesLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadUsers();
-    loadMovies();
-  }, []);
-
-  const totalAdmins = useMemo(
-    () => users.filter((item) => item.role === "admin").length,
-    [users],
-  );
-
-  const totalBannedUsers = useMemo(
-    () => users.filter((item) => item.isBanned).length,
-    [users],
-  );
+  useEffect(() => { loadData(); }, []);
 
   const filteredUsers = useMemo(() => {
-    const query = userSearch.trim().toLowerCase();
-    if (!query) {
-      return users;
-    }
-
-    return users.filter((item) => {
-      const username = item.username || "";
-      const email = item.email || "";
-      return (
-        username.toLowerCase().includes(query) ||
-        email.toLowerCase().includes(query)
-      );
-    });
+    const q = userSearch.toLowerCase();
+    return users.filter(u => u.username?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q));
   }, [users, userSearch]);
 
   const filteredMovies = useMemo(() => {
-    const query = movieSearch.trim().toLowerCase();
-    if (!query) {
-      return movies;
-    }
-
-    return movies.filter((movie) => {
-      const title = movie.title || "";
-      const genre = movie.genre || "";
-      const category = movie.category || "";
-      return (
-        title.toLowerCase().includes(query) ||
-        genre.toLowerCase().includes(query) ||
-        category.toLowerCase().includes(query)
-      );
-    });
+    const q = movieSearch.toLowerCase();
+    return movies.filter(m => m.title?.toLowerCase().includes(q));
   }, [movies, movieSearch]);
 
-  const clearMessages = () => {
-    setError("");
-    setSuccessMessage("");
-  };
-
-  const handleToggleBan = async (userId) => {
-    clearMessages();
-    setActionLoading(true);
+  const handleBan = async (id) => {
     try {
-      const result = await banOrUnbanUser(userId);
-      setSuccessMessage(result.message || "User status updated");
-      await loadUsers();
-    } catch (err) {
-      handleApiError(err, "Unable to update user status");
-    } finally {
-      setActionLoading(false);
-    }
+      const res = await api.patch(`/admin/users/${id}/ban`);
+      toast.success(res.data.message);
+      loadData();
+    } catch { toast.error("Failed"); }
   };
 
-  const handleDeleteUser = async (userId) => {
-    clearMessages();
-    setActionLoading(true);
+  const handleDeleteUser = async (id) => {
+    if (!window.confirm("Delete this user?")) return;
+    try { await api.delete(`/admin/users/${id}`); toast.success("User deleted"); loadData(); }
+    catch (e) { toast.error(e.response?.data?.message || "Failed"); }
+  };
+
+  const handleDeleteMovie = async (id) => {
+    if (!window.confirm("Delete this movie?")) return;
+    try { await api.delete(`/admin/movies/${id}`); toast.success("Movie deleted"); loadData(); }
+    catch { toast.error("Failed"); }
+  };
+
+  const handleEditMovie = (m) => {
+    setEditId(m._id);
+    Object.entries({ title: m.title, description: m.description, releaseDate: m.releaseDate, trailer: m.trailer, genre: m.genre, category: m.category, poster: m.poster }).forEach(([k, v]) => setValue(k, v || ""));
+    setTab("movies");
+  };
+
+  const onMovieSubmit = async (vals) => {
     try {
-      const result = await removeUser(userId);
-      setSuccessMessage(result.message || "User deleted");
-      await loadUsers();
-    } catch (err) {
-      handleApiError(err, "Unable to delete user");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleMovieField = (event) => {
-    const { name, value } = event.target;
-    setMovieForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const resetMovieForm = () => {
-    setMovieForm(initialMovieForm);
-    setEditingMovieId(null);
-  };
-
-  const handleEditMovie = (movie) => {
-    setEditingMovieId(movie._id);
-    setMovieForm({
-      title: movie.title || "",
-      description: movie.description || "",
-      releaseDate: movie.releaseDate || "",
-      trailer: movie.trailer || "",
-      genre: movie.genre || "",
-      category: movie.category || "",
-      poster: movie.poster || "",
-    });
-    setActiveTab("movies");
-    clearMessages();
-  };
-
-  const handleMovieSubmit = async (event) => {
-    event.preventDefault();
-    clearMessages();
-    setActionLoading(true);
-
-    try {
-      if (editingMovieId) {
-        const result = await editAdminMovie(editingMovieId, movieForm);
-        setSuccessMessage(result.message || "Movie updated");
+      if (editId) {
+        await api.put(`/admin/movies/${editId}`, vals);
+        toast.success("Movie updated!");
+        setEditId(null);
       } else {
-        const result = await createAdminMovie(movieForm);
-        setSuccessMessage(result.message || "Movie created");
+        await api.post("/admin/movies", vals);
+        toast.success("Movie created! 🎬");
       }
-      resetMovieForm();
-      await loadMovies();
-    } catch (err) {
-      handleApiError(err, "Unable to save movie");
-    } finally {
-      setActionLoading(false);
-    }
+      reset();
+      loadData();
+    } catch (e) { toast.error(e.response?.data?.message || "Failed"); }
   };
 
-  const handleDeleteMovie = async (movieDbId) => {
-    clearMessages();
-    setActionLoading(true);
-    try {
-      const result = await removeAdminMovie(movieDbId);
-      setSuccessMessage(result.message || "Movie deleted");
-      await loadMovies();
-    } catch (err) {
-      handleApiError(err, "Unable to delete movie");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } finally {
-      navigate("/login");
-    }
-  };
+  const stats = [
+    { icon: <FiUsers />, label: "Total Users", value: users.length },
+    { icon: <FiShield />, label: "Admins", value: users.filter(u => u.role === "admin").length },
+    { icon: <FiFilm />, label: "Custom Movies", value: movies.length },
+    { icon: <FiSlash />, label: "Banned Users", value: users.filter(u => u.isBanned).length },
+  ];
 
   return (
-    <main className="admin-page">
-      <div className="admin-backdrop" aria-hidden="true" />
-      <header className="admin-header">
-        <div>
-          <p className="admin-kicker">Admin Console</p>
-          <h1>Welcome, {adminName}</h1>
-          <p>Manage users and custom movies from one place.</p>
-        </div>
-
-        <div className="admin-header-actions">
-          <button
-            className="admin-btn ghost"
-            type="button"
-            onClick={() => navigate("/")}
-          >
-            Back Home
-          </button>
-          <button className="admin-btn" type="button" onClick={handleLogout}>
-            Logout
-          </button>
-        </div>
-      </header>
-
-      <section className="admin-stats">
-        <article>
-          <h3>Total Users</h3>
-          <p>{users.length}</p>
-        </article>
-        <article>
-          <h3>Admins</h3>
-          <p>{totalAdmins}</p>
-        </article>
-        <article>
-          <h3>Custom Movies</h3>
-          <p>{movies.length}</p>
-        </article>
-        <article>
-          <h3>Banned Users</h3>
-          <p>{totalBannedUsers}</p>
-        </article>
-      </section>
-
-      <section className="admin-tabs" aria-label="Admin sections">
-        <button
-          type="button"
-          className={activeTab === "users" ? "active" : ""}
-          onClick={() => setActiveTab("users")}
-        >
-          Users
-        </button>
-        <button
-          type="button"
-          className={activeTab === "movies" ? "active" : ""}
-          onClick={() => setActiveTab("movies")}
-        >
-          Movies
-        </button>
-      </section>
-
-      {error && <p className="admin-message error">{error}</p>}
-      {successMessage && (
-        <p className="admin-message success">{successMessage}</p>
-      )}
-
-      {activeTab === "users" && (
-        <section className="admin-panel">
-          <h2>Manage Users</h2>
-          <div className="admin-tools">
-            <input
-              type="text"
-              value={userSearch}
-              onChange={(event) => setUserSearch(event.target.value)}
-              placeholder="Search by username or email"
-            />
-            <button
-              className="admin-btn ghost"
-              type="button"
-              onClick={loadUsers}
-            >
-              Refresh
-            </button>
+    <div className="admin-page">
+      <Navbar />
+      <div className="admin-body">
+        <header className="admin-top">
+          <div>
+            <p className="admin-kicker">Admin Console</p>
+            <h1>Welcome, {user?.username}</h1>
           </div>
-          {usersLoading ? (
-            <p className="admin-state">Loading users...</p>
-          ) : (
-            <div className="admin-table-wrap">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map((item) => (
-                    <tr key={item._id}>
-                      <td>{item.username || "-"}</td>
-                      <td>{item.email || "-"}</td>
-                      <td>{item.role || "user"}</td>
-                      <td>{item.isBanned ? "Banned" : "Active"}</td>
-                      <td className="actions">
-                        <button
-                          className="admin-btn sm"
-                          type="button"
-                          disabled={actionLoading}
-                          onClick={() => handleToggleBan(item._id)}
-                        >
-                          {item.isBanned ? "Unban" : "Ban"}
-                        </button>
-                        <button
-                          className="admin-btn sm danger"
-                          type="button"
-                          disabled={actionLoading}
-                          onClick={() => handleDeleteUser(item._id)}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <button className="btn btn-ghost btn-md" onClick={() => navigate("/")}>← Home</button>
+        </header>
+
+        <div className="admin-stats">
+          {stats.map((s) => (
+            <div key={s.label} className="admin-stat">
+              <span className="stat-icon">{s.icon}</span>
+              <div><p className="stat-val">{s.value}</p><p className="stat-lbl">{s.label}</p></div>
             </div>
-          )}
-        </section>
-      )}
+          ))}
+        </div>
 
-      {activeTab === "movies" && (
-        <section className="admin-panel">
-          <h2>{editingMovieId ? "Edit Movie" : "Create Movie"}</h2>
+        <div className="admin-tabs">
+          {TABS.map(t => (
+            <button key={t} className={`admin-tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
 
-          <form className="movie-form" onSubmit={handleMovieSubmit}>
-            <div className="movie-form-grid">
-              <div className="movie-form-inputs">
-                <div className="form-group">
-                  <label htmlFor="title">Title *</label>
-                  <input
-                    id="title"
-                    name="title"
-                    value={movieForm.title}
-                    onChange={handleMovieField}
-                    placeholder="Enter movie title"
-                    required
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="releaseDate">Release Date</label>
-                    <input
-                      id="releaseDate"
-                      name="releaseDate"
-                      value={movieForm.releaseDate}
-                      onChange={handleMovieField}
-                      placeholder="e.g., 2024-03-15"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="genre">Genre</label>
-                    <input
-                      id="genre"
-                      name="genre"
-                      value={movieForm.genre}
-                      onChange={handleMovieField}
-                      placeholder="e.g., Action, Drama"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="category">Category</label>
-                    <input
-                      id="category"
-                      name="category"
-                      value={movieForm.category}
-                      onChange={handleMovieField}
-                      placeholder="e.g., Hollywood, Bollywood"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="trailer">Trailer URL</label>
-                    <input
-                      id="trailer"
-                      name="trailer"
-                      value={movieForm.trailer}
-                      onChange={handleMovieField}
-                      placeholder="YouTube or video URL"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="poster">Poster URL</label>
-                  <input
-                    id="poster"
-                    name="poster"
-                    value={movieForm.poster}
-                    onChange={handleMovieField}
-                    placeholder="https://example.com/poster.jpg"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="description">Description</label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    value={movieForm.description}
-                    onChange={handleMovieField}
-                    placeholder="Enter movie description..."
-                    rows={5}
-                  />
-                </div>
-              </div>
-
-              <div className="movie-form-preview">
-                <label>Poster Preview</label>
-                <div className="poster-preview">
-                  {movieForm.poster ? (
-                    <img src={movieForm.poster} alt="Poster preview" />
-                  ) : (
-                    <div className="poster-placeholder">
-                      <svg
-                        width="48"
-                        height="48"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <rect
-                          x="3"
-                          y="3"
-                          width="18"
-                          height="18"
-                          rx="2"
-                          ry="2"
-                        />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <polyline points="21 15 16 10 5 21" />
-                      </svg>
-                      <p>No poster URL provided</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+        {tab === "users" && (
+          <section className="admin-panel">
+            <div className="panel-toolbar">
+              <h2>Manage Users</h2>
+              <input className="form-input" placeholder="Search users…" value={userSearch} onChange={e => setUserSearch(e.target.value)} style={{ maxWidth: 280 }} />
             </div>
-
-            <div className="movie-form-actions">
-              <button
-                className="admin-btn"
-                type="submit"
-                disabled={actionLoading}
-              >
-                {actionLoading
-                  ? "Saving..."
-                  : editingMovieId
-                    ? "Update Movie"
-                    : "Create Movie"}
-              </button>
-              {editingMovieId && (
-                <button
-                  className="admin-btn ghost"
-                  type="button"
-                  onClick={resetMovieForm}
-                >
-                  Cancel Edit
-                </button>
-              )}
-            </div>
-          </form>
-
-          {moviesLoading ? (
-            <p className="admin-state">Loading movies...</p>
-          ) : (
-            <>
-              <div className="admin-tools">
-                <input
-                  type="text"
-                  value={movieSearch}
-                  onChange={(event) => setMovieSearch(event.target.value)}
-                  placeholder="Search by title, genre, or category"
-                />
-                <button
-                  className="admin-btn ghost"
-                  type="button"
-                  onClick={loadMovies}
-                >
-                  Refresh
-                </button>
-              </div>
-              <div className="admin-table-wrap">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th>Genre</th>
-                      <th>Category</th>
-                      <th>Release</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
+            {loading ? <p>Loading…</p> : (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
                   <tbody>
-                    {filteredMovies.map((movie) => (
-                      <tr key={movie._id}>
-                        <td>{movie.title}</td>
-                        <td>{movie.genre || "-"}</td>
-                        <td>{movie.category || "-"}</td>
-                        <td>{movie.releaseDate || "-"}</td>
+                    {filteredUsers.map(u => (
+                      <tr key={u._id}>
+                        <td>{u.username}</td><td>{u.email}</td><td>{u.role}</td>
+                        <td><span className={`status-badge ${u.isBanned ? "banned" : "active"}`}>{u.isBanned ? "Banned" : "Active"}</span></td>
                         <td className="actions">
-                          <button
-                            className="admin-btn sm"
-                            type="button"
-                            onClick={() => handleEditMovie(movie)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="admin-btn sm danger"
-                            type="button"
-                            disabled={actionLoading}
-                            onClick={() => handleDeleteMovie(movie._id)}
-                          >
-                            Delete
-                          </button>
+                          <button className="btn btn-sm btn-outline" onClick={() => handleBan(u._id)}>{u.isBanned ? "Unban" : "Ban"}</button>
+                          <button className="btn btn-sm btn-danger" onClick={() => handleDeleteUser(u._id)}><FiTrash2 /></button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </>
-          )}
-        </section>
-      )}
-    </main>
+            )}
+          </section>
+        )}
+
+        {tab === "movies" && (
+          <section className="admin-panel">
+            <h2>{editId ? "Edit Movie" : "Create Movie"}</h2>
+            <form className="movie-form" onSubmit={handleSubmit(onMovieSubmit)}>
+              <div className="movie-form-grid">
+                <div className="movie-form-fields">
+                  <div className="form-group"><label>Title *</label><input className={`form-input ${errors.title ? "error" : ""}`} placeholder="Movie title" {...register("title")} />{errors.title && <p className="field-err">{errors.title.message}</p>}</div>
+                  <div className="form-row-2">
+                    <div className="form-group"><label>Release Date</label><input className="form-input" placeholder="2024-01-15" {...register("releaseDate")} /></div>
+                    <div className="form-group"><label>Genre</label><input className="form-input" placeholder="Action, Drama…" {...register("genre")} /></div>
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group"><label>Category</label><input className="form-input" placeholder="Hollywood, Bollywood…" {...register("category")} /></div>
+                    <div className="form-group"><label>Trailer URL</label><input className="form-input" placeholder="YouTube link" {...register("trailer")} /></div>
+                  </div>
+                  <div className="form-group"><label>Poster URL</label><input className="form-input" placeholder="https://…" {...register("poster")} /></div>
+                  <div className="form-group"><label>Description</label><textarea className="form-input" rows={4} placeholder="Movie description…" {...register("description")} /></div>
+                </div>
+                <div className="poster-preview-col">
+                  <label>Poster Preview</label>
+                  <div className="poster-preview">
+                    {posterUrl ? <img src={posterUrl} alt="Poster" /> : <div className="poster-empty">🎬<p>No poster URL</p></div>}
+                  </div>
+                </div>
+              </div>
+              <div className="form-actions">
+                <button className="btn btn-primary btn-md" disabled={isSubmitting}>{isSubmitting ? "Saving…" : editId ? "Update Movie" : "Create Movie"}</button>
+                {editId && <button type="button" className="btn btn-ghost btn-md" onClick={() => { setEditId(null); reset(); }}>Cancel</button>}
+              </div>
+            </form>
+
+            <div className="panel-toolbar" style={{ marginTop: "2rem" }}>
+              <h3>All Custom Movies ({movies.length})</h3>
+              <input className="form-input" placeholder="Search movies…" value={movieSearch} onChange={e => setMovieSearch(e.target.value)} style={{ maxWidth: 280 }} />
+            </div>
+            {loading ? <p>Loading…</p> : (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Title</th><th>Genre</th><th>Category</th><th>Release</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {filteredMovies.map(m => (
+                      <tr key={m._id}>
+                        <td>{m.title}</td><td>{m.genre || "—"}</td><td>{m.category || "—"}</td><td>{m.releaseDate || "—"}</td>
+                        <td className="actions">
+                          <button className="btn btn-sm btn-outline" onClick={() => handleEditMovie(m)}><FiEdit2 /></button>
+                          <button className="btn btn-sm btn-danger" onClick={() => handleDeleteMovie(m._id)}><FiTrash2 /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
+    </div>
   );
 };
 

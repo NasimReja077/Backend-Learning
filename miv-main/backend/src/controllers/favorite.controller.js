@@ -1,46 +1,36 @@
+import Favorite from "../models/favorite.model.js";
+import { ApiResponse, asyncHandler } from "../utils/helpers.js";
+import ApiError from "../utils/ApiError.js";
 
-const favoriteModel = require('../models/favorite.model');
+export const getFavorites = asyncHandler(async (req, res) => {
+  const favorites = await Favorite.find({ userId: req.user._id }).sort({ createdAt: -1 });
+  res.json(new ApiResponse(200, { favorites }));
+});
 
+export const addFavorite = asyncHandler(async (req, res) => {
+  const { movieId } = req.params;
+  const { movieData } = req.body;
 
-async function addFavorite(req, res) {
-    const userId = req.user.id;
-    const { movieId } = req.params;
-    try {
-        const favorite = await favoriteModel.create({ userId, movieId });
-        res.status(201).json(favorite);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to add favorite' });
-    }
+  const existing = await Favorite.findOne({ userId: req.user._id, movieId });
+  if (existing) throw new ApiError(409, "Movie already in favorites");
 
-}
+  const favorite = await Favorite.create({
+    userId: req.user._id,
+    movieId,
+    movieData: movieData || {},
+  });
+  res.status(201).json(new ApiResponse(201, { favorite }, "Added to favorites"));
+});
 
-// remove favorite
+export const removeFavorite = asyncHandler(async (req, res) => {
+  const { movieId } = req.params;
+  const result = await Favorite.deleteOne({ userId: req.user._id, movieId });
+  if (result.deletedCount === 0) throw new ApiError(404, "Favorite not found");
+  res.json(new ApiResponse(200, null, "Removed from favorites"));
+});
 
-async function removeFavorite(req, res) {
-    const userId = req.user.id;
-    const { movieId } = req.params;
-    try {
-        await favoriteModel.deleteOne({ userId, movieId });
-        res.status(200).json({ message: 'Favorite removed' });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to remove favorite' });
-    }
-}
-
-// Get favorites
-
-async function getFavorites(req, res) {
-    const userId = req.user.id;
-    try {
-        const favorites = await favoriteModel.find({ userId });
-        res.status(200).json(favorites);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch favorites' });
-    }
-}
-
-module.exports = {
-    addFavorite,
-    removeFavorite,
-    getFavorites
-}
+export const checkFavorite = asyncHandler(async (req, res) => {
+  const { movieId } = req.params;
+  const exists = await Favorite.exists({ userId: req.user._id, movieId });
+  res.json(new ApiResponse(200, { isFavorite: !!exists }));
+});

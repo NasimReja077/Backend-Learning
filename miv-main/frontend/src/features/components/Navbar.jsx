@@ -1,218 +1,162 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/hooks/useAuth";
-import { searchMovies } from "../movies/api/movie.api";
+import {
+  FiSearch, FiX, FiUser, FiLogOut,
+  FiHome, FiFilm, FiBookmark, FiClock, FiTag, FiShield,
+} from "react-icons/fi";
+import { useAuth } from "../auth/auth.context.jsx";
+import { fetchSearch } from "../movies/api/movie.api.js";
+import "./Navbar.scss";
 
-const Navbar = ({
-  isAuthView = true,
-  onNavigate = () => {},
-  onLogout = () => {},
-  activeLink = "home",
-}) => {
+const TMDB_IMG = "https://image.tmdb.org/t/p/w92";
+
+export const Navbar = ({ activeLink = "home" }) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const debounceTimer = useRef(null);
-  const searchRef = useRef(null);
+  const { user, logout } = useAuth();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [showDrop, setShowDrop] = useState(false);
+  const timer = useRef(null);
+  const containerRef = useRef(null);
 
-  // Close search results when clicking outside
+  // Close dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setShowResults(false);
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setShowDrop(false);
       }
     };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Debounced search function
+  // Debounced search (500ms)
   useEffect(() => {
-    if (searchQuery.trim().length < 2) {
-      setSearchResults([]);
-      setShowResults(false);
-      return;
-    }
+    if (query.trim().length < 2) { setResults([]); setShowDrop(false); return; }
 
-    // Clear previous timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
+    clearTimeout(timer.current);
+    setSearching(true);
 
-    setIsSearching(true);
-
-    // Set new timer (500ms debounce)
-    debounceTimer.current = setTimeout(async () => {
+    timer.current = setTimeout(async () => {
       try {
-        const results = await searchMovies(searchQuery);
-        setSearchResults(results.slice(0, 8)); // Show max 8 results
-        setShowResults(true);
-      } catch (error) {
-        console.error("Search failed:", error);
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
+        const data = await fetchSearch(query);
+        const items = (data.results || []).slice(0, 8);
+        setResults(items);
+        setShowDrop(items.length > 0);
+      } catch { setResults([]); }
+      finally { setSearching(false); }
     }, 500);
 
-    return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-    };
-  }, [searchQuery]);
+    return () => clearTimeout(timer.current);
+  }, [query]);
 
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
+  const handleResultClick = (item) => {
+    navigate(item.media_type === "tv" ? `/tv/${item.id}` : `/movie/${item.id}`);
+    setQuery("");
+    setShowDrop(false);
   };
 
-  const handleResultClick = (movieId) => {
-    navigate(`/movie/${movieId}`);
-    setSearchQuery("");
-    setShowResults(false);
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
   };
 
-  const getPosterUrl = (movie) => {
-    if (movie.poster_path) {
-      return `https://image.tmdb.org/t/p/w92${movie.poster_path}`;
-    }
-    return "https://via.placeholder.com/92x138?text=No+Image";
-  };
+  const getPoster = (item) =>
+    item.poster_path
+      ? `${TMDB_IMG}${item.poster_path}`
+      : "https://via.placeholder.com/46x69?text=No+Image";
+
+  const navLinks = [
+    { key: "home",        icon: <FiHome />,     label: "Home",       to: "/" },
+    { key: "movies",      icon: <FiFilm />,     label: "Movies",     to: "/movies" },
+    { key: "genre",       icon: <FiTag />,      label: "Genres",     to: "/genre" },
+    { key: "my-list",     icon: <FiBookmark />, label: "My List",    to: "/my-list" },
+    { key: "watch-later", icon: <FiClock />,    label: "Watched",    to: "/watched" },
+    ...(user?.role === "admin"
+      ? [{ key: "admin", icon: <FiShield />, label: "Admin", to: "/admin" }]
+      : []),
+  ];
 
   return (
-    <header className={`site-navbar ${isAuthView ? "auth" : "movies"}`}>
-      <button
-        className="brand-button"
-        type="button"
-        onClick={() => onNavigate("home")}
-      >
-        PIXELFLIX
-      </button>
+    <header className="navbar">
+      <button className="navbar-brand" onClick={() => navigate("/")}>FLIXORA</button>
 
-      {isAuthView ? (
-        <nav className="nav-actions" aria-label="Authentication navigation">
+      <nav className="navbar-links" aria-label="Main navigation">
+        {navLinks.map((l) => (
           <button
-            className="nav-pill"
-            type="button"
-            onClick={() => onNavigate("login")}
+            key={l.key}
+            className={`nav-link ${activeLink === l.key ? "active" : ""}`}
+            onClick={() => navigate(l.to)}
           >
-            Sign In
+            {l.icon}
+            <span>{l.label}</span>
           </button>
-          <button
-            className="nav-pill accent"
-            type="button"
-            onClick={() => onNavigate("register")}
-          >
-            Sign Up
-          </button>
-        </nav>
-      ) : (
-        <>
-          <nav className="movie-links" aria-label="Movie navigation">
-            <button
-              type="button"
-              className={activeLink === "home" ? "is-active" : ""}
-              onClick={() => onNavigate("home")}
-            >
-              Home
-            </button>
-            <button
-              type="button"
-              className={activeLink === "movies" ? "is-active" : ""}
-              onClick={() => onNavigate("movies")}
-            >
-              Movies
-            </button>
-            <button
-              type="button"
-              className={activeLink === "my-list" ? "is-active" : ""}
-              onClick={() => onNavigate("my-list")}
-            >
-              My List
-            </button>
-            <button
-              type="button"
-              className={activeLink === "watch-later" ? "is-active" : ""}
-              onClick={() => onNavigate("watch-later")}
-            >
-              Watch Later
-            </button>
-            {user?.role === "admin" && (
-              <button
-                type="button"
-                className={activeLink === "admin" ? "is-active" : ""}
-                onClick={() => navigate("/admin")}
-              >
-                Admin
-              </button>
-            )}
-          </nav>
-          <div className="nav-search-container" ref={searchRef}>
-            <div className="nav-search-input">
-              <svg
-                className="search-icon"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search movies..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                onFocus={() => searchResults.length > 0 && setShowResults(true)}
-              />
-              {isSearching && (
-                <span className="search-loading">Searching...</span>
-              )}
-            </div>
+        ))}
+      </nav>
 
-            {showResults && searchResults.length > 0 && (
-              <div className="nav-search-results">
-                {searchResults.map((movie) => (
-                  <div
-                    key={movie.id}
-                    className="search-result-item"
-                    onClick={() => handleResultClick(movie.id)}
-                  >
-                    <img
-                      src={getPosterUrl(movie)}
-                      alt={movie.title || movie.name}
-                    />
-                    <div className="search-result-info">
-                      <h4>{movie.title || movie.name}</h4>
-                      <p>
-                        {movie.release_date
-                          ? new Date(movie.release_date).getFullYear()
-                          : "N/A"}
-                        {movie.vote_average && (
-                          <> • ⭐ {movie.vote_average.toFixed(1)}</>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+      {/* Search */}
+      <div className="navbar-search" ref={containerRef}>
+        <div className="search-input-wrap">
+          <FiSearch className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search movies, TV shows…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => results.length > 0 && setShowDrop(true)}
+          />
+          {searching && <span className="search-spinner" />}
+          {query && (
+            <button className="search-clear" onClick={() => { setQuery(""); setShowDrop(false); }}>
+              <FiX />
+            </button>
+          )}
+        </div>
+
+        {showDrop && (
+          <div className="search-dropdown">
+            {results.map((item) => (
+              <div
+                key={item.id}
+                className="search-result"
+                onClick={() => handleResultClick(item)}
+              >
+                <img src={getPoster(item)} alt={item.title || item.name} />
+                <div>
+                  <h4>{item.title || item.name}</h4>
+                  <p>
+                    {item.media_type === "tv" ? "TV Show" : "Movie"}
+                    {item.vote_average ? ` • ⭐ ${item.vote_average.toFixed(1)}` : ""}
+                  </p>
+                </div>
               </div>
-            )}
+            ))}
           </div>
-          <div className="nav-user-area">
-            <span className="nav-username">Hi, {user?.username || "User"}</span>
-            <button className="nav-pill" type="button" onClick={onLogout}>
-              Logout
-            </button>
-          </div>
-        </>
-      )}
+        )}
+      </div>
+
+      {/* User area */}
+      <div className="navbar-user">
+        {user?.avatar?.url ? (
+          <img
+            src={user.avatar.url}
+            alt={user.username}
+            className="user-avatar"
+            onClick={() => navigate("/profile")}
+          />
+        ) : (
+          <button className="user-icon-btn" onClick={() => navigate("/profile")}>
+            <FiUser />
+          </button>
+        )}
+        <span className="username" onClick={() => navigate("/profile")}>
+          {user?.username}
+        </span>
+        <button className="logout-btn" onClick={handleLogout} title="Logout">
+          <FiLogOut />
+        </button>
+      </div>
     </header>
   );
 };

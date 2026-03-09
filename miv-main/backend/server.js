@@ -1,11 +1,23 @@
-require('dotenv').config();
-const app = require('./src/app');
-const connectDB = require('./src/config/database');
-const redis = require('./src/config/cache');
+import "dotenv/config";
+import app from "./src/app.js";
+import connectDB from "./src/config/database.js";
+import { connectRedis } from "./src/config/cache.js";
 
-// connect to the database
-connectDB();
+const PORT = process.env.PORT || 5000;
 
-app.listen(process.env.PORT, () => {
-    console.log(`Server is running on port ${process.env.PORT}`);
-});
+const startServer = async () => {
+  try {
+    await connectDB();
+    await connectRedis();
+
+    app.listen(PORT, () => {
+      console.log(`🚀 Flixora server running on port ${PORT}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
+    });
+  } catch (error) {
+    console.error("❌ Failed to start server:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

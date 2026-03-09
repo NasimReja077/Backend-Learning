@@ -1,386 +1,176 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../../components/Navbar";
-import { useAuth } from "../../auth/hooks/useAuth";
-import { useMovies } from "../hooks/useMovies";
-import "../styles/home.scss";
+import { FiPlay, FiInfo } from "react-icons/fi";
+import Navbar from "../../components/Navbar.jsx";
+import MovieCard, { getPosterUrl } from "../../components/MovieCard.jsx";
+import { useMovies } from "../hooks/useMovies.js";
+import "./Home.scss";
 
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
-const TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/original";
+const TMDB_BACKDROP = "https://image.tmdb.org/t/p/original";
 
-const getPosterUrl = (movie) => {
-  // Check if it's a custom movie with direct URL
-  if (
-    movie.isCustom &&
-    movie.poster_path &&
-    !movie.poster_path.startsWith("/")
-  ) {
-    return movie.poster_path;
-  }
-
-  if (movie.poster_path) {
-    return `${TMDB_IMAGE_BASE}${movie.poster_path}`;
-  }
-
-  if (movie.backdrop_path) {
-    return `${TMDB_IMAGE_BASE}${movie.backdrop_path}`;
-  }
-
-  return "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=700&q=80";
+const getBackdrop = (m) => {
+  if (!m) return null;
+  if (m.isCustom && m.backdrop_path && !m.backdrop_path.startsWith("/")) return m.backdrop_path;
+  if (m.backdrop_path) return `${TMDB_BACKDROP}${m.backdrop_path}`;
+  return null;
 };
 
 const Home = () => {
   const navigate = useNavigate();
-  const [showTrailerModal, setShowTrailerModal] = useState(false);
+  const { allMovies, loading, error, fetchDetails } = useMovies();
   const [trailerKey, setTrailerKey] = useState(null);
-  const { logout } = useAuth();
-  const { allMovies, loading, error, fetchMovieDetails } = useMovies();
-  const featuredMovies = allMovies.slice(0, 8);
-  const moreToWatch = allMovies.slice(8, 12);
-  const mediaMovies = allMovies.slice(12, 18);
-  const heroMovie = allMovies[0];
 
-  const handleMovieClick = (movieId) => {
-    if (movieId) {
-      navigate(`/movie/${movieId}`);
+  const hero    = allMovies[0];
+  const trending = allMovies.slice(0, 10);
+  const picks    = allMovies.slice(10, 14);
+  const media    = allMovies.slice(14, 20);
+
+  const handlePlay = async () => {
+    if (!hero) return;
+    if (hero.isCustom && hero.customData?.trailer) {
+      window.open(hero.customData.trailer, "_blank");
+      return;
     }
-  };
-
-  const handleNavbarNavigate = (target) => {
-    if (target === "home") navigate("/");
-    if (target === "movies") navigate("/movies");
-    if (target === "my-list") navigate("/my-list");
-    if (target === "watch-later") navigate("/watch-later");
-  };
-
-  const handlePlayTrailer = async () => {
-    if (heroMovie?.id) {
-      try {
-        // Check if custom movie with trailer URL
-        if (heroMovie.isCustom && heroMovie.customData?.trailer) {
-          window.open(heroMovie.customData.trailer, "_blank");
-          return;
-        }
-
-        const movieDetails = await fetchMovieDetails(heroMovie.id);
-        const firstTrailer =
-          movieDetails?.videos?.results?.find(
-            (video) => video.type === "Trailer" && video.site === "YouTube",
-          ) || movieDetails?.videos?.results?.[0];
-
-        if (firstTrailer) {
-          setTrailerKey(firstTrailer.key);
-          setShowTrailerModal(true);
-        } else {
-          navigate(`/movie/${heroMovie.id}`);
-        }
-      } catch (error) {
-        navigate(`/movie/${heroMovie.id}`);
-      }
-    }
-  };
-
-  const getBackdropUrl = (movie) => {
-    if (!movie) return null;
-
-    // Check if it's a custom movie with direct URL
-    if (
-      movie.isCustom &&
-      movie.backdrop_path &&
-      !movie.backdrop_path.startsWith("/")
-    ) {
-      return movie.backdrop_path;
-    }
-
-    if (movie.backdrop_path) {
-      return `${TMDB_BACKDROP_BASE}${movie.backdrop_path}`;
-    }
-
-    return null;
-  };
-
-  const closeTrailerModal = () => {
-    setShowTrailerModal(false);
-    setTrailerKey(null);
-  };
-
-  const handleLogout = async () => {
     try {
-      await logout();
-    } finally {
-      navigate("/login");
+      const details = await fetchDetails(hero.id, hero.media_type);
+      const trailer = details?.videos?.results?.find(
+        (v) => v.type === "Trailer" && v.site === "YouTube"
+      ) || details?.videos?.results?.[0];
+      if (trailer) setTrailerKey(trailer.key);
+      else navigate(`/movie/${hero.id}`);
+    } catch {
+      navigate(`/movie/${hero.id}`);
     }
   };
 
   return (
-    <main className="home-page">
-      <div className="home-glow" aria-hidden="true" />
-
+    <div className="home-page">
+      {/* Hero */}
       <section
         className="hero"
         style={{
-          backgroundImage: getBackdropUrl(heroMovie)
-            ? `url(${getBackdropUrl(heroMovie)})`
+          backgroundImage: getBackdrop(hero)
+            ? `url(${getBackdrop(hero)})`
             : "none",
         }}
       >
-        <Navbar
-          isAuthView={false}
-          activeLink="home"
-          onNavigate={handleNavbarNavigate}
-          onLogout={handleLogout}
-        />
-
         <div className="hero-overlay" />
+        <Navbar activeLink="home" />
 
-        <div className="hero-grid">
+        <div className="hero-body">
           <div className="hero-content">
-            <p className="hero-kicker">
-              {heroMovie ? "TRENDING #1" : "PIXELFLIX ORIGINAL"}
+            <p className="hero-kicker">🔥 TRENDING #1</p>
+            <h1>{hero?.title || hero?.name || "Welcome to Flixora"}</h1>
+            <p className="hero-overview">
+              {(hero?.overview || "Discover the best movies and TV shows on Flixora.").slice(0, 200)}
+              {(hero?.overview?.length || 0) > 200 ? "…" : ""}
             </p>
-            <h1>{heroMovie?.title || heroMovie?.name || "The Last Signal"}</h1>
-            <p>
-              {heroMovie?.overview ||
-                "A renegade astronaut decodes a message from a vanished colony and uncovers a conspiracy spread across time."}
-            </p>
-
-            <div className="hero-tags">
-              {heroMovie?.vote_average && (
-                <span>{Math.round(heroMovie.vote_average * 10)}% Match</span>
-              )}
-              {heroMovie?.genre_ids?.slice(0, 2).map((genreId) => {
-                const genreNames = {
-                  28: "Action",
-                  12: "Adventure",
-                  16: "Animation",
-                  35: "Comedy",
-                  80: "Crime",
-                  99: "Documentary",
-                  18: "Drama",
-                  10751: "Family",
-                  14: "Fantasy",
-                  36: "History",
-                  27: "Horror",
-                  10402: "Music",
-                  9648: "Mystery",
-                  10749: "Romance",
-                  878: "Sci-Fi",
-                  10770: "TV Movie",
-                  53: "Thriller",
-                  10752: "War",
-                  37: "Western",
-                };
-                return <span key={genreId}>{genreNames[genreId] || ""}</span>;
-              })}
-              {heroMovie?.adult === false && <span>U/A 16+</span>}
-            </div>
-
             <div className="hero-actions">
-              <button
-                className="btn btn-lg home-btn-play"
-                type="button"
-                onClick={handlePlayTrailer}
-                disabled={!heroMovie}
-              >
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="play-icon"
-                >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                Play
+              <button className="btn btn-white btn-lg" onClick={handlePlay}>
+                <FiPlay /> Play Trailer
               </button>
               <button
-                className="btn btn-lg home-btn-info"
-                type="button"
-                onClick={() => heroMovie && handleMovieClick(heroMovie.id)}
-                disabled={!heroMovie}
+                className="btn btn-ghost btn-lg"
+                onClick={() => hero && navigate(`/movie/${hero.id}`)}
               >
-                More Info
+                <FiInfo /> More Info
               </button>
             </div>
           </div>
 
-          <aside className="hero-panel" aria-label="Now streaming insights">
+          <aside className="hero-panel">
             <h3>Now Streaming</h3>
-            <ul>
-              <li>
-                <strong>#1 Trending</strong>
-                <span>
-                  {heroMovie?.media_type === "tv" ? "TV Series" : "Movie"}
-                </span>
-              </li>
-              {heroMovie?.vote_average && (
-                <li>
-                  <strong>Rating</strong>
-                  <span>⭐ {heroMovie.vote_average.toFixed(1)}/10</span>
-                </li>
-              )}
-              {heroMovie?.release_date && (
-                <li>
-                  <strong>Release</strong>
-                  <span>{new Date(heroMovie.release_date).getFullYear()}</span>
-                </li>
-              )}
-              {heroMovie?.first_air_date && (
-                <li>
-                  <strong>First Aired</strong>
-                  <span>
-                    {new Date(heroMovie.first_air_date).getFullYear()}
-                  </span>
-                </li>
-              )}
-              {heroMovie?.popularity && (
-                <li>
-                  <strong>Popularity</strong>
-                  <span>{Math.round(heroMovie.popularity)}</span>
-                </li>
-              )}
-            </ul>
+            {hero && (
+              <ul>
+                <li><strong>Type</strong><span>{hero.media_type === "tv" ? "TV Show" : "Movie"}</span></li>
+                {hero.vote_average > 0 && (
+                  <li><strong>Rating</strong><span>⭐ {hero.vote_average.toFixed(1)}/10</span></li>
+                )}
+                {hero.release_date && (
+                  <li><strong>Year</strong><span>{new Date(hero.release_date).getFullYear()}</span></li>
+                )}
+              </ul>
+            )}
           </aside>
         </div>
-
         <div className="hero-fade" />
       </section>
 
-      <section className="home-sections">
-        <div className="row-block">
-          <div className="row-head">
+      {/* Sections */}
+      <div className="home-sections">
+        {/* Trending row */}
+        <section className="home-row">
+          <div className="row-header">
             <div>
-              <h2>Trending</h2>
-              <p>Live data from your backend movie service</p>
+              <h2>Trending Now</h2>
+              <p>Live from your backend movie service</p>
             </div>
-            <button
-              className="row-more"
-              type="button"
-              onClick={() => navigate("/movies")}
-            >
-              See all
-            </button>
+            <button className="see-all" onClick={() => navigate("/movies")}>See all →</button>
           </div>
-
-          {loading && <p>Loading trending movies...</p>}
-          {error && !loading && <p>{error}</p>}
-
-          {!loading && !error && (
-            <div className="poster-row">
-              {featuredMovies.map((movie, index) => (
-                <article
-                  className="poster-card"
-                  key={movie.id || movie.title || index}
-                  onClick={() => handleMovieClick(movie.id)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <img
-                    src={getPosterUrl(movie)}
-                    alt={movie.title || movie.name || "Movie poster"}
-                    loading="lazy"
-                  />
-                  <div className="poster-meta">
-                    <span>{movie.title || movie.name || "Untitled"}</span>
-                    <small>#{index + 1} in Trending</small>
-                  </div>
-                </article>
+          {loading && <p className="state-text">Loading…</p>}
+          {error && <p className="state-text error">{error}</p>}
+          {!loading && (
+            <div className="card-scroll">
+              {trending.map((m, i) => (
+                <div key={m.id} className="card-scroll-item">
+                  <MovieCard movie={m} rank={i + 1} />
+                </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        <div className="row-block">
-          <div className="row-head">
+        {/* Editor Picks */}
+        <section className="home-row">
+          <div className="row-header">
             <div>
-              <h2>More to Watch</h2>
-              <p>Live picks from the same backend trending feed</p>
+              <h2>Editor's Picks</h2>
+              <p>Handpicked for tonight</p>
             </div>
-            <button
-              className="row-more"
-              type="button"
-              onClick={() => navigate("/my-list")}
-            >
-              Explore
-            </button>
+            <button className="see-all" onClick={() => navigate("/my-list")}>Explore →</button>
           </div>
-
-          {!loading && !error && (
-            <div className="people-row">
-              {moreToWatch.map((movie, index) => (
-                <article className="person-card" key={movie.id || index}>
-                  <img
-                    src={getPosterUrl(movie)}
-                    alt={movie.title || movie.name || "Movie poster"}
-                    loading="lazy"
-                  />
-                  <h3>{movie.title || movie.name || "Untitled"}</h3>
-                  <p>{movie.release_date || "Release date unavailable"}</p>
-                  <button
-                    className="btn btn-sm btn-outline"
-                    type="button"
-                    onClick={() => handleMovieClick(movie.id)}
-                  >
-                    Details
-                  </button>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="row-block">
-          <div className="row-head">
-            <div>
-              <h2>Images / Media</h2>
-              <p>Posters and backdrops fetched from live movie data</p>
-            </div>
+          <div className="picks-grid">
+            {picks.map((m) => (
+              <MovieCard key={m.id} movie={m} />
+            ))}
           </div>
+        </section>
 
-          {!loading && !error && (
-            <div className="media-grid">
-              {mediaMovies.map((movie, index) => (
-                <article
-                  className="media-card"
-                  key={movie.id || index}
-                  onClick={() => handleMovieClick(movie.id)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <img
-                    src={getPosterUrl(movie)}
-                    alt={movie.title || movie.name || "Media still"}
-                    loading="lazy"
-                  />
-                  <span>
-                    {movie.title || movie.name || `Media ${index + 1}`}
-                  </span>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+        {/* Media Grid */}
+        <section className="home-row">
+          <div className="row-header">
+            <div><h2>Images & Media</h2><p>Posters from live data</p></div>
+          </div>
+          <div className="media-grid">
+            {media.map((m) => (
+              <div
+                key={m.id}
+                className="media-cell"
+                onClick={() => navigate(`/movie/${m.id}`)}
+              >
+                <img src={getPosterUrl(m)} alt={m.title || m.name} loading="lazy" />
+                <span>{m.title || m.name}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
 
       {/* Trailer Modal */}
-      {showTrailerModal && trailerKey && (
-        <div className="trailer-modal" onClick={closeTrailerModal}>
-          <div
-            className="trailer-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button className="trailer-close" onClick={closeTrailerModal}>
-              ✕
-            </button>
+      {trailerKey && (
+        <div className="trailer-modal" onClick={() => setTrailerKey(null)}>
+          <div className="trailer-modal-inner" onClick={(e) => e.stopPropagation()}>
+            <button className="trailer-close" onClick={() => setTrailerKey(null)}>✕</button>
             <iframe
               src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`}
               title="Trailer"
-              frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 };
 

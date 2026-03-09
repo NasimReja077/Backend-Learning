@@ -1,45 +1,22 @@
-const { Router } = require('express');
+import { Router } from "express";
+import {
+  trending, search, movieDetails, tvDetails,
+  genres, moviesByGenre, popular, topRated,
+  getCustomMovies, getCustomMovieById,
+} from "../controllers/movie.controller.js";
+import { searchRateLimiter } from "../middlewares/rateLimiter.middleware.js";
 
-const movieController = require('../controllers/movie.controller');
-const movieRouter = Router();
+const router = Router();
 
-/**
- * @route Get custom created movies
- * @route /api/movies/custom
- * @access Public
- */
-movieRouter.get('/custom', movieController.getCustomMoviesController);
+router.get("/trending",              trending);
+router.get("/popular",               popular);
+router.get("/top-rated",             topRated);
+router.get("/search",                searchRateLimiter, search);
+router.get("/genres",                genres);
+router.get("/genre/:genreId",        moviesByGenre);
+router.get("/custom",                getCustomMovies);
+router.get("/custom/:id",            getCustomMovieById);
+router.get("/tv/:id",                tvDetails);
+router.get("/:id",                   movieDetails);
 
-/**
- * @route Get single custom movie by ID
- * @route /api/movies/custom/:id
- * @access Public
- */
-movieRouter.get('/custom/:id', movieController.getCustomMovieByIdController);
-
-/**
- * @routr Get  trending movies
- * @route /api/movies/trending
- * @access Public
- */
-movieRouter.get('/trending', movieController.getTrendingMoviesController);
-
-/**
- * @route Get Search Movies
- * @route /api/movies/search
- * @access Public
- */
-movieRouter.get('/search', movieController.searchMoviesController);
-
-/**
- * @route Get Movie Details
- * @route /api/movies/:id
- * @access Public
- */
-movieRouter.get('/:id', movieController.getMovieDetailsController);
-
-module.exports = movieRouter;
-
-
-
-
+export default router;

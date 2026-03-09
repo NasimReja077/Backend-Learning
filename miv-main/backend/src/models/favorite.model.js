@@ -1,19 +1,25 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
-const favoriteSchema = new mongoose.Schema({
+const favoriteSchema = new mongoose.Schema(
+  {
     userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'users',
-        required: [true, 'User ID is required']
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
     movieId: {
-        type: Number,
-        required: [true, 'Movie ID is required']
+      type: mongoose.Schema.Types.Mixed,
+      required: true,
     },
-}, { timestamps: true });
+    movieData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+  },
+  { timestamps: true }
+);
 
 favoriteSchema.index({ userId: 1, movieId: 1 }, { unique: true });
 
-const favoriteModel = mongoose.model('favorites', favoriteSchema);
-
-module.exports = favoriteModel;
+const Favorite = mongoose.model("Favorite", favoriteSchema);
+export default Favorite;

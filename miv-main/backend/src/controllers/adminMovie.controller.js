@@ -1,79 +1,51 @@
-const movieModel = require("../models/movie.model");
+import { body } from "express-validator";
+import Movie from "../models/movie.model.js";
+import { ApiResponse, asyncHandler } from "../utils/helpers.js";
+import ApiError from "../utils/ApiError.js";
 
+export const movieFormValidators = [
+  body("title").trim().notEmpty().withMessage("Title is required"),
+  body("trailer").optional().trim(),
+  body("poster").optional().trim(),
+  body("genre").optional().trim(),
+  body("category").optional().trim(),
+  body("description").optional().trim(),
+  body("releaseDate").optional().trim(),
+];
 
-async function createMovie(req, res) {
-    try {
+export const getAllMovies = asyncHandler(async (_req, res) => {
+  const movies = await Movie.find().sort({ createdAt: -1 });
+  res.json(new ApiResponse(200, { movies, total: movies.length }));
+});
 
-        const { title, description, releaseDate, trailer, genre, category, poster } = req.body;
+export const createMovie = asyncHandler(async (req, res) => {
+  const { title, description, releaseDate, trailer, genre, category, poster } = req.body;
 
-        const movieId = 'movie_' + Date.now()
+  const existing = await Movie.findOne({ title });
+  if (existing) throw new ApiError(409, "A movie with this title already exists");
 
-        // check if movie with the same already exists
-        const existingMovie = await movieModel.findOne({ $or: [{ title }, { movieId }] });
-        if (existingMovie) {
-            return res.status(400).json({ error: 'Movie already exists with this title' });
-        }
+  const movieId = `flixora_${Date.now()}`;
+  const movie = await Movie.create({
+    title, description, releaseDate, trailer, genre, category, poster, movieId,
+    createdBy: req.user._id,
+  });
 
-        const newMovie = await movieModel.create({ title, description, releaseDate, trailer, genre, category, poster, movieId });
-        res.status(201).json({
-            message: 'Movie created successfully',
-            movie: newMovie
-        });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to create movie' });
-    }
-}
+  res.status(201).json(new ApiResponse(201, { movie }, "Movie created successfully"));
+});
 
-async function updateMovie(req, res) {
-    try {
-        const { id } = req.params;
-        const { title, description, releaseDate, trailer, genre, category, poster } = req.body;
-        const updatedMovie = await movieModel.findByIdAndUpdate(id, { title, description, releaseDate, trailer, genre, category, poster }, { new: true });
-        if (!updatedMovie) {
-            return res.status(404).json({ error: 'Movie not found' });
-        }
-        res.status(200).json({
-            message: 'Movie updated successfully',
-            movie: updatedMovie
-        });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to update movie' });
-    }
+export const updateMovie = asyncHandler(async (req, res) => {
+  const { title, description, releaseDate, trailer, genre, category, poster } = req.body;
+  const movie = await Movie.findByIdAndUpdate(
+    req.params.id,
+    { title, description, releaseDate, trailer, genre, category, poster },
+    { new: true, runValidators: true }
+  );
+  if (!movie) throw new ApiError(404, "Movie not found");
+  res.json(new ApiResponse(200, { movie }, "Movie updated successfully"));
+});
 
-}
-
-async function deleteMovie(req, res) {
-    try {
-        const { id } = req.params;
-        const deletedMovie = await movieModel.findByIdAndDelete(id);
-        if (!deletedMovie) {
-            return res.status(404).json({ error: 'Movie not found' });
-        }
-        res.status(200).json({
-            message: 'Movie deleted successfully',
-            movie: deletedMovie
-        });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to delete movie' });
-    }
-}
-
-// get all movies - for admin
-async function getAllMovies(req, res) {
-    try {
-        const movies = await movieModel.find();
-        res.status(200).json({
-            message: 'Movies retrieved successfully',
-            movies
-        });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve movies' });
-    }
-}
-
-module.exports = {
-    createMovie,
-    updateMovie,
-    deleteMovie,
-    getAllMovies
-}
+export const deleteMovie = asyncHandler(async (req, res) => {
+  const movie = await Movie.findByIdAndDelete(req.params.id);
+  if (!movie) throw new ApiError(404, "Movie not found");
+  res.json(new ApiResponse(200, null, "Movie deleted successfully"));
+});

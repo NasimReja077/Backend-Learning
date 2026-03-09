@@ -1,41 +1,36 @@
+import User from "../models/user.model.js";
+import { ApiResponse, asyncHandler } from "../utils/helpers.js";
+import ApiError from "../utils/ApiError.js";
 
+export const getAllUsers = asyncHandler(async (_req, res) => {
+  const users = await User.find().select("-password").sort({ createdAt: -1 });
+  res.json(new ApiResponse(200, { users, total: users.length }));
+});
 
-// getAllUsers, deleteUser, banUser
+export const deleteUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) throw new ApiError(404, "User not found");
+  if (user.role === "admin") throw new ApiError(403, "Cannot delete an admin account");
+  await user.deleteOne();
+  res.json(new ApiResponse(200, null, "User deleted successfully"));
+});
 
-const userModel = require("../models/auth.model");
+export const toggleBanUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) throw new ApiError(404, "User not found");
+  if (user.role === "admin") throw new ApiError(403, "Cannot ban an admin account");
+  user.isBanned = !user.isBanned;
+  await user.save();
+  res.json(
+    new ApiResponse(200, { isBanned: user.isBanned },
+      `User ${user.isBanned ? "banned" : "unbanned"} successfully`)
+  );
+});
 
-async function getAllUsers(req, res) {
-    //    check if user is admin
-    const users = await userModel.find().select("-password");
-    res.json(users);
-
-}
-
-// delete user
-async function deleteUser(req, res) {
-    const { id } = req.params;
-    await userModel.findByIdAndDelete(id);
-    res.json({ message: "User deleted successfully" });
-}
-
-// ban user and unban user
-async function banUser(req, res) {
-    try {
-        const { id } = req.params;
-        const user = await userModel.findById(id);
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-        user.isBanned = !user.isBanned;
-        await user.save();
-        res.json({ message: `User ${user.isBanned ? "banned" : "unbanned"} successfully` });
-    } catch (error) {
-        res.status(500).json({ message: "Failed to ban/unban user" });
-    }
-}
-
-module.exports = {
-    getAllUsers,
-    deleteUser,
-    banUser,
-}
+export const promoteUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) throw new ApiError(404, "User not found");
+  user.role = user.role === "admin" ? "user" : "admin";
+  await user.save();
+  res.json(new ApiResponse(200, { role: user.role }, `User role updated to ${user.role}`));
+});
