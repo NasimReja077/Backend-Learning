@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Second Brain Saver",
+  "version": "1.0.0",
+  "description": "Save articles, YouTube, tweets & PDFs with AI",
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "Save to Second Brain"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:5000/*"
+  ]
+}
