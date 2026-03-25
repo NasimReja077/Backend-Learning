@@ -1,0 +1,342 @@
+{
+  "mainTitle": "How I build a blog with NextJS and Sanity",
+  "author": "Mastodon",
+  "readingTime": "N/A",
+  "publishDate": "N/A",
+  "content": [
+    {
+      "type": "h1",
+      "text": "How I build a blog with NextJS and Sanity"
+    },
+    {
+      "type": "p",
+      "text": "10"
+    },
+    {
+      "type": "p",
+      "text": "Listen"
+    },
+    {
+      "type": "p",
+      "text": "Share"
+    },
+    {
+      "type": "h2",
+      "text": "How I built this blog site."
+    },
+    {
+      "type": "p",
+      "text": "As a developer, jumping into a new project with new technology is pretty damn exciting. Recently, I took on building a personal website using technologies that offered high performance and scalability."
+    },
+    {
+      "type": "p",
+      "text": "Since 2013, I've been creating websites using WordPress. While I like its large ecosystem and community, there are some major drawbacks. WordPress is bloated, vulnerable to security issues, and the developer experience sucks. So, I've decided to break away from the monolithic CMS to a decoupled solution that’s lighter, faster, and more efficient."
+    },
+    {
+      "type": "p",
+      "text": "In this post, I’ll share my thoughts and process, from selecting the appropriate tools to integrating them, as well as the lessons learned and best practices gathered along the way."
+    },
+    {
+      "type": "p",
+      "text": "Here’s the stack I used: NextJS 14, Typescript, Tailwind CSS, Framer Motion, Anime, React Hook Form, Zod, and Sanity CMS v3."
+    },
+    {
+      "type": "h2",
+      "text": "Why I Chose NextJS 14"
+    },
+    {
+      "type": "p",
+      "text": "I picked NextJS for several reasons. It offers numerous features that simplify the process of creating a high-performing website. Server-side rendering, static site generation, and automatic image optimization are excellent for SEO. Serverless functions and API routes allow you to write server code on the front end. Automatic code splitting eliminates the need to configure Webpack or Turbopack."
+    },
+    {
+      "type": "p",
+      "text": "NextJS keeps improving, and the pace of development is staggering. This can sometimes be a drawback, especially when an update introduces breaking changes. The introduction of server actions in version 14 made api routes for mutations a thing of the past."
+    },
+    {
+      "type": "p",
+      "text": "My contact form uses a server action to push data to Sanity."
+    },
+    {
+      "type": "h2",
+      "text": "Styling with Tailwind CSS"
+    },
+    {
+      "type": "p",
+      "text": "I used Tailwind CSS for styling. Its utility-first approach makes it unique among CSS frameworks. It allows for rapid UI development and helps maintain consistency across designs without locking you into prescribed UI components like Bootstrap or Foundation. You can still use a UI library if you want, and several are built on Tailwind."
+    },
+    {
+      "type": "p",
+      "text": "The amount of stuff you can do with Tailwind is mind-blowing, from setting up varients to building templates; there’s little you can’t do with it. And you can integrate Tailwind with NextJS automaticly during the initial setup."
+    },
+    {
+      "type": "p",
+      "text": "Although all the classes that Tailwind uses during development may seem like a drag on performance, it automatically removes unused styles during the build process, resulting in much smaller style sheets in production. The only drawback I find with Tailwind is that it clutters up your HTML with lots of classes, making it difficult to read."
+    },
+    {
+      "type": "h2",
+      "text": "Enhancing UI Interactions with Framer Motion"
+    },
+    {
+      "type": "p",
+      "text": "I integrated Framer Motion, an animation library that uses CSS transforms to make the UI interactions more engaging. It’s simple to use; you tack “motion.” onto any HTML element and add a few custom attributes. For example, adding a button with a hover effect requires only a few lines of code, thanks to Framer Motion’s simple API."
+    },
+    {
+      "type": "p",
+      "text": "Of course, you can go considerably deeper with it than just micro-interactions, like the reveal animation on the homepage. In future updates, I will definitely be exploring Framer Motion’s advanced capabilities."
+    },
+    {
+      "type": "p",
+      "text": "Additionally, the dot animations on the homepage are achieved with Anime.js, which is more suitable for that cool wave-like stagger animation."
+    },
+    {
+      "type": "h2",
+      "text": "Form Handling with React Hook Form and Zod"
+    },
+    {
+      "type": "p",
+      "text": "It is crucial to handle forms securely in web apps. I selected React Hook Form to manage the form state and Zod to validate the inputs on both the front and back ends. Zod is great for making validations declarative and tightly coupled with TypeScript for type safety."
+    },
+    {
+      "type": "p",
+      "text": "But, in hindsight, I should have built the forms from scratch and used Zod for validation on its own. Using React Hook Form with server actions, which send data as FormData, meant writing extra code to translate the FormData to JSON."
+    },
+    {
+      "type": "p",
+      "text": "React Hook Form isn’t the best choice if you use form actions."
+    },
+    {
+      "type": "h2",
+      "text": "Using TypeScript for Code Reliability"
+    },
+    {
+      "type": "p",
+      "text": "I used to be afraid of Typescript. It seemed overly complex, and I didn’t want to learn another JavaScript variant. Writing straight JS is definitely easier. But debugging a bunch of type errors is a headache, too. It sucks to write 200 lines of code only to have it crash and then spend the next 2 hours trying to figure out what went wrong."
+    },
+    {
+      "type": "p",
+      "text": "Using TS is a tiny bit more work, but in the long run, it saves time by showing type errors in real time in my editor. It also helps with autocompletion in my IDE (VScode) because it gives Inellisense more to work with."
+    },
+    {
+      "type": "p",
+      "text": "Lastly, it’s optional; you don’t have to type everything, and your code won’t break if you don’t. After all, Typescript is just JavaScript with some convenient extra features."
+    },
+    {
+      "type": "h2",
+      "text": "Choosing Sanity for the Back-End"
+    },
+    {
+      "type": "p",
+      "text": "For the back end, I selected Sanity instead of a traditional database. Writing everything in Markdown is simpler and more performant, but I wanted to build a true decoupled, headless CMS."
+    },
+    {
+      "type": "p",
+      "text": "Sanity was not easy to set up; the boilerplate code needed is astounding. However, it offers a super-friendly content editing experience. I plan to use Sanity as my content hub across all my applications. Right now, I also have content on Supabase and MongoDB. Storing site-specific data in a database makes sense. Having my content on a structured platform where I can distribute it to all my various projects also makes sense."
+    },
+    {
+      "type": "p",
+      "text": "Creating content in a Word-like environment is also logical from an SEO standpoint because I can clearly delineate headings and meta-descriptions. Sanity uses GROQ to query its Content Lake. GROQ was easy to learn, and the Sanity Studio includes a GROQ playground called Vision to test your projection before dropping it into a function. I don’t need to set up a Studio on every project, which would tank performance. Instead, I can create a schema specific to the project and set up endpoints for my content hub. That way, all content everywhere will be dynamic and centrally located."
+    },
+    {
+      "type": "p",
+      "text": "Integrating Sanity with NextJS allowed me to fetch data server-side or statically at build time, optimizing performance and scalability."
+    },
+    {
+      "type": "h2",
+      "text": "Lessons Learned and Best Practices"
+    },
+    {
+      "type": "p",
+      "text": "Throughout this project, several lessons stood out:"
+    },
+    {
+      "type": "li",
+      "text": "Start with a clear structure: Planning the project structure and component hierarchy early in the process can save much refactoring time later."
+    },
+    {
+      "type": "li",
+      "text": "Embrace utility-first CSS cautiously: While Tailwind CSS accelerates development, it’s vital to use it judiciously to avoid cluttering HTML with too many utility classes."
+    },
+    {
+      "type": "li",
+      "text": "Animation with purpose: Framer Motion is powerful, but animations should be used sparingly and only when they enhance the user experience."
+    },
+    {
+      "type": "li",
+      "text": "Validation at every step: Using Zod with React Hook Form ensured data integrity, reducing potential security risks."
+    },
+    {
+      "type": "li",
+      "text": "Invest in a suitable CMS: Sanity CMS proved invaluable for content management but required some initial investment in setup and customization."
+    },
+    {
+      "type": "h2",
+      "text": "Conclusion"
+    },
+    {
+      "type": "p",
+      "text": "Building this website with NextJS 14, Tailwind CSS, Framer Motion, React Hook Form, Zod, TypeScript, and Sanity CMS was a fulfilling experience that pushed the boundaries of what I could achieve with modern web technologies. Combining these tools made the development process enjoyable and resulted in a high-quality, maintainable, scalable web application. For anyone embarking on a similar journey, I recommend embracing these technologies, keeping in mind the lessons learned and best practices that helped make this project a success. and best practices gathered along the way."
+    },
+    {
+      "type": "h2",
+      "text": "Get Erik Jonsberg’s stories in your inbox"
+    },
+    {
+      "type": "p",
+      "text": "Join Medium for free to get updates from this writer."
+    },
+    {
+      "type": "p",
+      "text": "Remember me for faster sign in"
+    },
+    {
+      "type": "p",
+      "text": "Here’s the stack I used: NextJS 14, Typescript, Tailwind CSS, Framer Motion, Anime, React Hook Form, Zod, and Sanity CMS v3."
+    },
+    {
+      "type": "h2",
+      "text": "Why I Chose NextJS 14"
+    },
+    {
+      "type": "p",
+      "text": "I started by choosing NextJS as the front-end framework. It offers out-of-the-box features such as server-side rendering and static site generation, which are crucial for SEO and performance. Its file-based routing system and API routes also make it incredibly intuitive to quickly set up a full-fledged web application."
+    },
+    {
+      "type": "p",
+      "text": "NextJS keeps improving, and the pace of development is staggering. This can sometimes be a drawback, especially when an update introduces breaking changes. Take a look at the changes in this minor release. The introduction of server actions in 14 made api routes for mutations a thing of the past."
+    },
+    {
+      "type": "p",
+      "text": "My contact form uses a server action to push mutations to Sanity."
+    },
+    {
+      "type": "h2",
+      "text": "Styling with Tailwind CSS"
+    },
+    {
+      "type": "p",
+      "text": "I used Tailwind CSS for styling. Its utility-first approach makes it unique among CSS frameworks. It allows for rapid UI development and helps maintain consistency across designs without locking you into prescribed UI components like Bootstrap or Foundation."
+    },
+    {
+      "type": "p",
+      "text": "The amount of stuff you can do with Tailwind is mind-blowing, from setting up varients to building templates; there’s little you can’t do with it. Integrating Tailwind with NextJS is automatic during the initial setup."
+    },
+    {
+      "type": "p",
+      "text": "Although Tailwind may seem huge during development, it automatically removes unused styles during the build process, resulting in much smaller style sheets in production. The only drawback I find with Tailwind is that it clutters up your HTML with lots of classes, making it difficult to read."
+    },
+    {
+      "type": "h2",
+      "text": "Enhancing UI Interactions with Framer Motion"
+    },
+    {
+      "type": "p",
+      "text": "I integrated Framer Motion, an animation library that uses CSS transforms to make the UI interactions more engaging. It’s simple to use; you tack “motion.” onto any HTML element and add a few custom attributes. For example, adding a button with a hover effect requires only a few lines of code, thanks to Framer Motion’s simple API."
+    },
+    {
+      "type": "p",
+      "text": "Of course, you can go considerably deeper with it than just micro-interactions, like the reveal animation on the homepage. In future updates, I will definitely explore Framer Motion’s advanced capabilities."
+    },
+    {
+      "type": "p",
+      "text": "Additionally, the dot animations on the homepage are achieved with Anime.js, which is more suitable for complex animations."
+    },
+    {
+      "type": "h2",
+      "text": "Form Handling with React Hook Form and Zod"
+    },
+    {
+      "type": "p",
+      "text": "It is crucial to handle forms efficiently and securely in web applications. I selected React Hook Form to manage the form state and Zod to validate the schema. Zod is great for making validations declarative and tightly coupled with TypeScript for type safety."
+    },
+    {
+      "type": "p",
+      "text": "But, in hindsight, I should have built the forms from scratch and used Zod for validation on its own. Since it’s only a simple contact form, I didn’t need all that extra weight and code."
+    },
+    {
+      "type": "p",
+      "text": "NextJS 14 adds server actions, which makes route handling a million times easier — you don’t need routes! However, there’s a catch: server actions send FormData, not JSON, which means you have to convert your data to JSON before you mutate it."
+    },
+    {
+      "type": "p",
+      "text": "React Hook Form isn’t the best choice if you use form actions."
+    },
+    {
+      "type": "h2",
+      "text": "Using TypeScript for Code Reliability"
+    },
+    {
+      "type": "p",
+      "text": "I used to be afraid of Typescript. It seemed overly complex, and I didn’t want to learn another JavaScript variant. Writing straight JS is definitely easier. But debugging a bunch of type errors is a headache, too. It sucks to write 200 lines of code only to have it crash and then spend the next 2 hours trying to figure out what went wrong."
+    },
+    {
+      "type": "p",
+      "text": "Using TS is more work, but in the long run, it saves time by showing type errors in real time in my editor. It also helps with autocompletion in my IDE (VScode) and gives Inellisense more to work with."
+    },
+    {
+      "type": "p",
+      "text": "Lastly, it’s optional; you don’t have to type everything, and your code won’t break if you don’t. After all, Typescript is just JavaScript with some convenient extra features."
+    },
+    {
+      "type": "h2",
+      "text": "Choosing Sanity CMS for the Back-End"
+    },
+    {
+      "type": "p",
+      "text": "For the back end, I selected Sanity CMS instead of a traditional database. Writing everything in Markdown is simpler and more performant, but I wanted to build a true decoupled, headless CMS."
+    },
+    {
+      "type": "p",
+      "text": "Sanity was not easy to set up; the boilerplate code needed is astounding. However, it offers a super-friendly content editing experience. I plan to use Sanity as my content hub across all my applications. Right now, I also have content on Supabase and MongoDB. Storing site-specific data in a database makes sense. Having my content on a structured platform where I can distribute it to all my various projects also makes sense."
+    },
+    {
+      "type": "p",
+      "text": "Creating content in a content creation environment is also logical from an SEO standpoint because I can clearly delineate SEO titles and meta descriptions. Sanity uses GROQ to query its Content Lake. GROQ was easy to learn, and the Sanity Studio includes a GROQ playground called Vision to test your projections before dropping them into functions. I don’t need to set up a Studio on every project, which would tank performance. Instead, I can create a schema specific to the project and set up endpoints for my content hub. That way, all content everywhere will be dynamic and centrally located."
+    },
+    {
+      "type": "p",
+      "text": "Integrating Sanity with NextJS allowed me to fetch data server-side or statically at build time, optimizing performance and scalability."
+    },
+    {
+      "type": "h2",
+      "text": "Lessons Learned and Best Practices"
+    },
+    {
+      "type": "p",
+      "text": "Throughout this project, several lessons stood out:"
+    },
+    {
+      "type": "li",
+      "text": "Start with a clear structure: Planning the project structure and component hierarchy early in the process can save much refactoring time later. I built this project piecemeal, but I now have a much clearer picture of what goes into a headless blog site."
+    },
+    {
+      "type": "li",
+      "text": "Embrace utility-first CSS cautiously: While Tailwind CSS accelerates development, it’s vital to use it judiciously to avoid cluttering HTML with too many utility classes. Sometimes it makes more sense to build varients to use across components."
+    },
+    {
+      "type": "li",
+      "text": "Animation with purpose: Framer Motion is powerful, but animations should be used sparingly and only when they enhance the user experience. Dropping animations everywhere can quickly add weight to an application."
+    },
+    {
+      "type": "li",
+      "text": "Make sure inputs are properly validated: Using Zod ensured data integrity, reducing potential security risks."
+    },
+    {
+      "type": "li",
+      "text": "Invest in a suitable CMS: Sanity proved invaluable for content management but required some initial investment in setup and customization."
+    },
+    {
+      "type": "h2",
+      "text": "Conclusion"
+    },
+    {
+      "type": "p",
+      "text": "Creating this website with NextJS 14, Tailwind CSS, Framer Motion, Zod, TypeScript, and Sanity was a fulfilling experience that helped me understand the process of building a modern, high-performing CMS. I didn’t have to spend hours or days cropping images or configuring cache software trying to squeeze extra seconds out of long load times as I did with WordPress. It just worked, and it worked well. Deploying to Vercel was as simple as connecting my GitHub repo. Combining cutting-edge tools made the development process enjoyable and resulted in a high-quality, maintainable, scalable web application. For anyone embarking on a similar journey, I recommend checking these technologies, keeping in mind the lessons learned and best practices that helped make this project a success."
+    },
+    {
+      "type": "p",
+      "text": "Thanks for reading."
+    }
+  ],
+  "totalParagraphs": 54,
+  "scrapedAt": "2026-03-25T15:44:26.105Z"
+}
