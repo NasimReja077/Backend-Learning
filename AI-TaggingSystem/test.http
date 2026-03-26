@@ -1,0 +1,6 @@
+POST http://localhost:3000/tag
+Content-Type: application/json
+
+{
+  "content": "Stop Memorizing Design Patterns: Use This Decision Tree Instead."
+}
