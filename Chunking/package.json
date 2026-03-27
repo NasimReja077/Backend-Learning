@@ -1,0 +1,27 @@
+{
+  "name": "chunking",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@langchain/core": "^1.1.36",
+    "@langchain/textsplitters": "^1.0.1",
+    "@mistralai/mistralai": "^2.1.2",
+    "cosine-similarity": "^1.0.1",
+    "dotenv": "^17.3.1",
+    "langchain": "^1.2.37",
+    "natural": "^8.1.1",
+    "openai": "^6.33.0",
+    "tiktoken": "^1.0.22"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
