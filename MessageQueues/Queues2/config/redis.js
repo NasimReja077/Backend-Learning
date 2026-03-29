@@ -1,0 +1,14 @@
+import "dotenv/config";
+import IORedis from "ioredis";
+
+const redisUrl = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+
+console.log("🛠️ Redis connecting to:", redisUrl.includes("@") ? "Remote Redis" : redisUrl);
+
+
+export const connection = new IORedis(redisUrl, {
+  maxRetriesPerRequest: null,
+});
+
+connection.on("error", (err) => console.error("Redis Error:", err));
+connection.on("connect", ()=> console.log("Redis connected successfully!"));
