@@ -1,0 +1,9 @@
+You are learning Message Queues with BullMQ (one of the most popular production-grade queue libraries in Node.js).
+
+1. Core Concepts You've Covered:Message Queue Fundamentals – How to decouple heavy/slow tasks (like sending emails) from the main application.
+2. Producer-Consumer Pattern – Producer adds jobs, Worker processes them.
+3. Redis as Backend – BullMQ uses Redis to store and manage jobs reliably.
+4. Asynchronous Job Processing – Jobs run in background without blocking the server.
+5. ES Modules in Node.js (import / export) — Modern JavaScript syntax.
+6. Graceful Shutdown – Proper way to close workers.
+7. Job Data Passing – Sending data (email, subject, body) through the queue.
