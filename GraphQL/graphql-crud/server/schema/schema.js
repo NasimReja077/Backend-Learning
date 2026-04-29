@@ -37,3 +37,52 @@ const RootQuery = new GraphQLObjectType({
     }
   }
 });
+
+
+const Mutation = new GraphQLObjectType({
+  name: "Mutation",
+  fields: {
+    addUser: {
+      type: UserType,
+      args: {
+        name: { type: GraphQLString },
+        email: { type: GraphQLString },
+        age: { type: GraphQLInt }
+      },
+      resolve(_, args) {
+        const user = new User(args);
+        return user.save();
+      }
+    },
+
+    updateUser: {
+      type: UserType,
+      args: {
+        id: { type: GraphQLID },
+        name: { type: GraphQLString },
+        email: { type: GraphQLString },
+        age: { type: GraphQLInt }
+      },
+      resolve(_, args) {
+        return User.findByIdAndUpdate(
+          args.id,
+          args,
+          { new: true }
+        );
+      }
+    },
+
+    deleteUser: {
+      type: UserType,
+      args: { id: { type: GraphQLID } },
+      resolve(_, args) {
+        return User.findByIdAndDelete(args.id);
+      }
+    }
+  }
+});
+
+module.exports = new GraphQLSchema({
+  query: RootQuery,
+  mutation: Mutation
+});
