@@ -1,38 +1,32 @@
 // src/commands/chat.js
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import ora from 'ora';
 import boxen from 'boxen';
 import { mistralService } from '../services/mistralService.js';
 
 export async function startChat(useRAG = false) {
-  console.log(boxen(chalk.bold.cyan(' Mistral AI Chat '), { padding: 1, borderColor: 'blue', margin: { top: 1 } }));
-
-  console.log(chalk.gray('Type "exit" to quit | "clear" to reset conversation\n'));
+  console.log(boxen(chalk.bold.cyan(' Mistral AI Streaming Chat '), {
+    padding: 1,
+    borderColor: 'blue',
+    margin: { top: 1 }
+  }));
 
   while (true) {
     const { input } = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'input',
-        message: chalk.greenBright('You →'),
-      }
+      { type: 'input', name: 'input', message: chalk.greenBright('You →') }
     ]);
 
-    if (!input.trim()) continue;
-
+    if (!input?.trim()) continue;
     if (input.toLowerCase() === 'exit') break;
     if (input.toLowerCase() === 'clear') {
-      console.log(chalk.yellow('✓ Conversation cleared'));
+      console.clear();
       continue;
     }
 
-    const spinner = ora({ text: 'Thinking...', color: 'cyan' }).start();
+    process.stdout.write(chalk.magenta('\nMistral → '));
 
     try {
-      const reply = await mistralService.sendMessage(input, useRAG);
-
-      spinner.stop();
+      const reply = await mistralService.sendMessage(input, useRAG, true); // true = stream
 
       console.log(boxen(chalk.white(reply), {
         padding: 1,
@@ -41,7 +35,6 @@ export async function startChat(useRAG = false) {
         borderStyle: 'round'
       }));
     } catch (err) {
-      spinner.stop();
       console.log(chalk.red('✖ Error:'), err.message);
     }
   }
