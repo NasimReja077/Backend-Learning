@@ -5,17 +5,13 @@ import { ragService } from '../rag/index.js';
 const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
 
 export const mistralService = {
-  async sendMessage(message, useRAG = false) {
+  async sendMessage(message, useRAG = false, stream = false) {
     let systemPrompt = "You are a helpful, accurate, and friendly assistant.";
 
     if (useRAG) {
       const context = await ragService.getContext(message);
       if (context) {
-        systemPrompt = `You are a helpful assistant. Answer the question based only on the provided context. 
-If the answer is not in the context, say "I don't have enough information in my knowledge base."
-
-Context:
-${context}`;
+        systemPrompt = `Answer using only the context below. Say you don't know if information is missing.\n\nContext:\n${context}`;
       }
     }
 
@@ -24,11 +20,28 @@ ${context}`;
       { role: "user", content: message }
     ];
 
+    if (stream) {
+      let fullResponse = '';
+      const response = await client.chat.stream({
+        model: 'mistral-large-latest',
+        messages,
+        temperature: 0.7,
+      });
+
+      for await (const chunk of response) {
+        const token = chunk.data.choices[0]?.delta?.content || '';
+        process.stdout.write(chalk.white(token));
+        fullResponse += token;
+      }
+      console.log('\n');
+      return fullResponse;
+    }
+
+    // Non-stream fallback
     const response = await client.chat.complete({
       model: 'mistral-large-latest',
       messages,
       temperature: 0.7,
-      maxTokens: 1024,
     });
 
     return response.choices[0].message.content;
