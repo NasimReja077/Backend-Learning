@@ -8,77 +8,54 @@ import { startChat } from './commands/chat.js';
 import { startRAGChat } from './commands/ragChat.js';
 import { showToolsMenu } from './commands/tools.js';
 import { ragService } from './rag/index.js';
+import { settings } from './config/settings.js';
 
-const gradientHeader = gradient(['#00ffcc', '#0099ff', '#00ffcc']);
+const headerGradient = gradient(['#00ffcc', '#00aaff', '#ff00cc']);
 
 export async function startApp() {
   if (!process.env.MISTRAL_API_KEY) {
-    console.log(chalk.red('❌ MISTRAL_API_KEY is missing in .env'));
+    console.log(chalk.red.bold('❌ MISTRAL_API_KEY missing in .env'));
     process.exit(1);
   }
 
   console.clear();
 
-  // Beautiful Header
-  console.log(
-    gradientHeader(
-      boxen('   MISTRAL AI CLI   ', {
-        padding: { left: 4, right: 4, top: 0, bottom: 0 },
-        margin: { top: 1, bottom: 1 },
-        borderStyle: 'double',
-        borderColor: 'cyan',
-        title: 'v1.0',
-        titleAlignment: 'center'
-      })
-    )
-  );
-
-  console.log(chalk.gray('   Powered by Mistral Large + RAG System\n'));
-
   while (true) {
+    console.log(
+      headerGradient(
+        boxen('   ✨ MISTRAL AI CLI ✨ ', {
+          padding: 1,
+          margin: { top: 1, bottom: 1 },
+          borderStyle: 'double',
+          borderColor: 'cyan',
+          title: 'v1.1',
+          titleAlignment: 'center'
+        })
+      )
+    );
+
     const { mainChoice } = await inquirer.prompt([
       {
         type: 'list',
         name: 'mainChoice',
-        message: chalk.cyan.bold('Select an option:'),
-        pageSize: 10,
+        message: chalk.cyan.bold('🚀 Choose an action:'),
+        pageSize: 12,
         choices: [
-          new inquirer.Separator(chalk.cyan('─'.repeat(50))),
+          new inquirer.Separator(chalk.cyan('═'.repeat(60))),
 
-          { 
-            name: chalk.bold('💬  Normal Chat'), 
-            value: 'chat',
-            short: 'Normal Chat'
-          },
-          { 
-            name: chalk.bold('🧠  RAG Chat (Knowledge Base)'), 
-            value: 'rag',
-            short: 'RAG Chat'
-          },
+          { name: chalk.bold.hex('#00ffcc')('💬  Normal Chat'), value: 'chat' },
+          { name: chalk.bold.hex('#ff00ff')('🧠  RAG Chat (Knowledge)'), value: 'rag' },
 
-          new inquirer.Separator(chalk.cyan('─'.repeat(50))),
+          new inquirer.Separator(chalk.cyan('─'.repeat(60))),
 
-          { 
-            name: chalk.bold('📥  Index Documents'), 
-            value: 'index',
-            short: 'Index Documents'
-          },
+          { name: chalk.bold.hex('#ffff00')('📥  Index Documents'), value: 'index' },
+          { name: chalk.bold.hex('#00ffff')('🛠️  File System Tools'), value: 'tools' },
 
-          new inquirer.Separator(chalk.cyan('─'.repeat(50))),
+          new inquirer.Separator(chalk.cyan('─'.repeat(60))),
 
-          { 
-            name: chalk.bold('🛠️  File System Tools'), 
-            value: 'tools',
-            short: 'File Tools'
-          },
-
-          new inquirer.Separator(chalk.cyan('─'.repeat(50))),
-
-          { 
-            name: chalk.red.bold('🚪  Exit Program'), 
-            value: 'exit',
-            short: 'Exit'
-          }
+          { name: chalk.bold.hex('#ff8800')('⚙️  Settings & Model'), value: 'settings' },
+          { name: chalk.bold.hex('#88ff88')('💾  Save / Load Chat'), value: 'history' },
+          { name: chalk.red.bold('🚪  Exit'), value: 'exit' },
         ]
       }
     ]);
@@ -86,26 +63,19 @@ export async function startApp() {
     console.log('');
 
     switch (mainChoice) {
-      case 'chat':
-        await startChat(false);
-        break;
-      case 'rag':
-        await startRAGChat();
-        break;
-      case 'index':
-        await ragService.indexFolder();
-        break;
-      case 'tools':
-        await showToolsMenu();
+      case 'chat': await startChat(false); break;
+      case 'rag': await startRAGChat(); break;
+      case 'index': await ragService.indexFolder(); break;
+      case 'tools': await showToolsMenu(); break;
+      case 'settings': await settings.showMenu(); break;
+      case 'history':
+        console.log(chalk.yellow('History feature coming soon...'));
         break;
       case 'exit':
-        console.log(
-          boxen(chalk.yellow('Thank you for using Mistral AI CLI 👋'), {
-            padding: 1,
-            borderColor: 'yellow',
-            margin: { top: 1 }
-          })
-        );
+        console.log(boxen(chalk.yellow.bold('Thank you for using Mistral AI CLI 👋'), {
+          padding: 1,
+          borderColor: 'yellow'
+        }));
         process.exit(0);
     }
   }
