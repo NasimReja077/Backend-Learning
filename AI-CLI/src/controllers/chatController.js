@@ -7,11 +7,13 @@ export async function startChat() {
   console.log(chalk.bold.cyan('\n=== Mistral AI Chat ===\n'));
   console.log(chalk.gray('Type "clear" to reset chat, "exit" to quit\n'));
 
+
   while (true) {
     const { input } = await inquirer.prompt([
       { type: 'input', name: 'input', message: chalk.green('You:') }
     ]);
 
+    
     if (input.toLowerCase() === 'exit') break;
     if (input.toLowerCase() === 'clear') {
       mistralService.clearHistory();

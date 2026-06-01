@@ -23,9 +23,8 @@ export async function startApp() {
   while (true) {
     console.log(
       headerGradient(
-        boxen('   ✨ MISTRAL AI CLI ✨ ', {
-          padding: 1,
-          margin: { top: 1, bottom: 1 },
+        boxen('✨ MISTRAL AI CLI ✨ ', {
+          padding: 1, margin: { top: 1, bottom: 1 },
           borderStyle: 'double',
           borderColor: 'cyan',
           title: 'v1.1',
@@ -38,7 +37,7 @@ export async function startApp() {
       {
         type: 'list',
         name: 'mainChoice',
-        message: chalk.cyan.bold('🚀 Choose an action:'),
+        message: chalk.cyan.bold('Choose an action:'),
         pageSize: 12,
         choices: [
           new inquirer.Separator(chalk.cyan('═'.repeat(60))),
@@ -61,7 +60,6 @@ export async function startApp() {
     ]);
 
     console.log('');
-
     switch (mainChoice) {
       case 'chat': await startChat(false); break;
       case 'rag': await startRAGChat(); break;
