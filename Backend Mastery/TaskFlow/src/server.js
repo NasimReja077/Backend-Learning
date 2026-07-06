@@ -1,34 +1,25 @@
-const express = require('express');
-const dotenv = require('dotenv');
-const cors = require('cors');
-const morgan = require('morgan');
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import morgan from "morgan";
 
 dotenv.config();
 
-const connectDB = require('./config/database');
-const taskRoutes = require('./routes/taskRoutes');
-const errorHandler = require('./middleware/errorHandler');
+import connectDB from "./config/database.js";
 
 const app = express();
 
-// Middleware
 app.use(express.json());
 app.use(cors());
-app.use(morgan('dev'));
+app.use(morgan("dev"));
 
-// Routes
-app.use('/api/tasks', taskRoutes);
 
-// Global Error Handler (Must be last)
-app.use(errorHandler);
-
-const PORT = process.env.PORT || 5000;
-
+const PORT = process.env.PORT || 5000
 const startServer = async () => {
   await connectDB();
-  app.listen(PORT, () => {
+  app.listen(PORT,() => {
     console.log(`🚀 Server running on port ${PORT}`);
-  });
+});
 };
 
 startServer();
