@@ -1,11 +1,13 @@
-const express = require('express');
-const router = express.Router();
-const taskController = require('../controllers/taskController');
+import { Router } from 'express';
+const router = Router();
+import { createTask, getAllTasks, getTask, updateTask, deleteTask } from '../controllers/taskController';
+import { single } from '../config/multer';
 
-router.post('/', taskController.createTask);
-router.get('/', taskController.getAllTasks);
-router.get('/:id', taskController.getTask);
-router.patch('/:id', taskController.updateTask);
-router.delete('/:id', taskController.deleteTask);
 
-module.exports = router;
+router.post('/', single('image'), createTask);
+router.get('/', getAllTasks);
+router.get('/:id', getTask);
+router.patch('/:id', single('image'), updateTask);
+router.delete('/:id', deleteTask);
+
+export default router;
