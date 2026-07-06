@@ -25,7 +25,11 @@ const taskSchema = new mongoose.Schema({
   },
   
   image: {
-    type: String,           // Store file path or URL
+    type: String,           // Cloudinary URL
+    default: null
+  },
+  imagePublicId: {          // Important for deleting later
+    type: String,
     default: null
   }
 }, {
