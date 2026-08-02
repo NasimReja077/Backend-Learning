@@ -1,0 +1,1142 @@
+1. First understand the MongoDB structure
+
+Think of MongoDB like this:
+
+MongoDB Server
+│
+├── Database
+│   │
+│   ├── Collection
+│   │    │
+│   │    ├── Document
+│   │    │    ├── Field
+│   │    │    ├── Field
+│   │    │    └── Field
+│   │    │
+│   │    └── Document
+│   │
+│   └── Collection
+│
+└── Database
+
+================
+For project:
+
+MongoDB
+   ↓
+student_management
+   ↓
+students
+   ↓
+Documents
+   ↓
+Fields
+==================
+
+> use student_management
+> db
+> show dbs
+> db.createCollection("students")
+> show collections
+>Document 
+{
+    name: "Nasim",
+    age: 23,
+    course: "MCA"
+}
+
+{
+    name: "Rahul",
+    age: 22,
+    course: "BCA"
+}
+-----
+Field - A field is a key-value pair inside a document.
+
+Example:
+
+{
+    name: "Nasim",
+    age: 23,
+    course: "MCA"
+}
+
+Fields are: name, age, course
+
+Values are: "Nasim", 23, "MCA"
+
+So: name: "Nasim" is a field.
+
+_id
+
+Every MongoDB document normally has a unique _id.
+ObjectId is MongoDB's commonly used identifier type.
+
+Example:
+
+ObjectId("688c12345678901234567890")
+---------
+CRUD
+
+> insertOne, insertMany
+
+-db.students.insertOne({
+    name: "Nasim",
+    email: "nasim@example.com",
+    age: 23,
+    gender: "male",
+    course: "MCA",
+    skills: ["JavaScript", "React", "Node.js"],
+    marks: 85,
+    address: {
+        city: "Kolkata",
+        state: "West Bengal"
+    },
+    isActive: true,
+    feesPaid: 75000
+})
+
+-db.students.insertMany([
+     // data
+])
+
+--
+>find(), findOne()
+db.students.find
+(
+     {
+          course: "MCA"
+     }
+)
+
+db.students.findOne({
+    course: "MCA"
+})
+
+UPDATE
+│
+├── updateOne()
+├── updateMany()
+└── replaceOne()
+
+DELETE
+│
+├── deleteOne()
+└── deleteMany()
+========
+
+>> Query Operators
+The important ones:
+
+$eq
+$ne
+$gt
+$gte
+$lt
+$lte
+$in
+$nin
+
+$eq — Equal Find students whose marks equal 85:
+db.students.find({
+    marks: { $eq: 85 }
+})
+
+$ne — Not Equal Find students who are not doing MCA:
+db.students.find({
+    course: { $ne: "MCA" }
+})
+
+$gt — Greater Than Students whose marks are greater than 80:
+
+$gte — Greater Than or Equal
+Meaning:marks >= 80
+
+$lt — Less Than
+
+$lte — Less Than or Equal
+db.students.find({
+    marks: { $lte: 70 }
+})
+
+$in -Find MCA or BCA students:
+db.students.find({
+    course: {
+        $in: ["MCA", "BCA"]
+    }
+})
+
+Meaning: course = MCA OR course = BCA
+
+$nin - Find students who are neither MCA nor BCA:
+
+db.students.find({
+    course: {
+        $nin: ["MCA", "BCA"]
+    }
+})
+
+========
+ogical Operators
+
+Important:
+
+$and
+$or
+$nor
+$not
+
+
+$and -MCA students with marks > 80:
+db.students.find({
+    $and: [
+        { course: "MCA" },
+        { marks: { $gt: 80 } }
+    ]
+})
+
+$or - MCA or marks greater than 90:
+$nor - Neither MCA nor marks > 90:
+$not - Example:
+
+db.students.find({
+    marks: {
+        $not: {
+            $gt: 80
+        }
+    }
+})
+
+Meaning: marks NOT > 80
+------
+$or vs $nor $not
+Or -
+     Or is used for positive choices.
+     It connects two or more options where you can pick one.
+     Example: You can have tea or coffee.
+Nor- 
+     Nor is used to link negative choices.
+     It usually follows the word neither.
+     Example: I like neither tea nor coffee.
+
+Not-
+     Not is a basic word to make a single action or fact negative.
+     When used with a choice, it often pairs with or instead of nor.
+     Example: I do not want tea or coffee.
+----------
+Query Nested Fields
+A nested field means a field inside another object/document.
+student
+│
+├── name
+├── age
+├── course
+└── address          ← nested object
+     ├── city        ← nested field
+     ├── state       ← nested field
+     └── pincode     ← nested field
+address: {
+    city: "Kolkata",
+    state: "West Bengal"
+}
+
+
+You can query:
+
+db.students.find({
+    "address.city": "Kolkata"
+})
+
+Nested field with comparison operators
+db.students.find({
+    "address.pincode": {
+        $gt: 700000
+    }
+})
+
+db.students.find({
+    "address.city": {
+        $in: ["Kolkata", "Delhi"]
+    }
+})
+
+db.students.updateOne(
+    { name: "Nasim" },
+    {
+        $set: {
+            "address.city": "Howrah"
+        }
+    }
+)
+
+=====///=======///=======
+This is called dot notation.
+=====\\\=======\\\=======
+Very important in MongoDB.
+
+=====================================
+==============
+>> Query Arrays
+
+Arrays are very common in MongoDB, especially in MERN applications.
+
+For example, our students collection can contain:
+
+{
+    name: "Nasim",
+    course: "MCA",
+
+    skills: [
+        "JavaScript",
+        "React",
+        "Node.js",
+        "MongoDB"
+    ]
+}
+
+Here skills is an array field.
+
+MongoDB gives you several ways to query arrays.
+
+{
+    name: "Nasim",
+    skills: ["JavaScript", "React", "Node.js", "MongoDB"]
+}
+
+Find students who have "React":
+
+db.students.find({
+    skills: "React"
+})
+
+MongoDB automatically checks whether "React" exists inside the array.
+
+> $all,$in,$nin,$size
+
+You can use 
+     $all. -> AND
+     
+     db.students.find({
+     skills: {
+          $all: ["React", "MongoDB"]
+          }
+     })
+Meaning
+skills must contain:
+    React
+    AND
+    MongoDB
+
+     $in with arrays - OR
+db.students.find({
+    skills: {
+        $in: ["React", "Python"]
+    }
+})
+
+Meaning: React OR Python - If a student has either one, they match.
+
+$nin with arrays
+Find students who don't have React or Python:
+
+db.students.find({
+    skills: {
+        $nin: ["React", "Python"]
+    }
+})
+
+$size - $size searches for an array containing an exact number of elements.
+There are 3 skills.
+
+Find students having exactly 3 skills:
+
+db.students.find({
+    skills: {
+        $size: 3
+    }
+})
+Important
+
+$size does not directly support:
+
+$size: { $gt: 3 }
+
+❌ Don't use it like that.
+
+For more advanced array-length conditions, aggregation is generally used.
+============
+
+$elemMatch ⭐⭐⭐⭐⭐
+
+This is one of the most important array operators.
+
+Consider:
+
+{
+    name: "Nasim",
+
+    marks: [
+        60,
+        75,
+        90
+    ]
+}
+
+You can use:
+
+db.students.find({
+    marks: {
+        $elemMatch: {
+            $gte: 80,
+            $lte: 95
+        }
+    }
+})
+
+Meaning:
+
+Find a document where at least one array element is between 80 and 95.
+
+$elemMatch with Array of Objects ⭐⭐⭐⭐⭐
+
+This is much more important in real applications.
+
+Suppose:
+
+{
+    name: "Nasim",
+
+    courses: [
+        {
+            name: "MongoDB",
+            marks: 90
+        },
+        {
+            name: "JavaScript",
+            marks: 85
+        }
+    ]
+}
+
+We want:
+
+Students who scored more than 80 in MongoDB.
+
+Use:
+
+db.students.find({
+    courses: {
+        $elemMatch: {
+            name: "MongoDB",
+            marks: {
+                $gt: 80
+            }
+        }
+    }
+})
+
+This ensures the conditions:
+
+name = MongoDB
+AND
+marks > 80
+
+apply to the same array object.
+
+10. Array of Objects Without $elemMatch
+
+You can also query using dot notation:
+
+db.students.find({
+    "courses.name": "MongoDB"
+})
+
+This searches inside the array.
+
+You can also do:
+
+db.students.find({
+    "courses.marks": {
+        $gt: 80
+    }
+})
+
+But when multiple conditions need to apply to the same array element, $elemMatch is safer and more explicit.
+$all with nested arrays
+
+Find students whose projects use both React and MongoDB:
+
+db.students.find({
+    "projects.technologies": {
+        $all: ["React", "MongoDB"]
+    }
+})
+
+For more complex conditions where both technologies need to belong to the same project, use $elemMatch with an appropriate nested structure.
+
+14. Array Index Position ⭐⭐⭐
+
+MongoDB supports array index access through dot notation.
+
+Suppose:
+
+{
+    name: "Nasim",
+    skills: [
+        "JavaScript",
+        "React",
+        "Node.js"
+    ]
+}
+
+Array indexes start at:
+
+0 → JavaScript
+1 → React
+2 → Node.js
+
+Find students whose first skill is JavaScript:
+
+db.students.find({
+    "skills.0": "JavaScript"
+})
+
+Second skill:
+
+db.students.find({
+    "skills.1": "React"
+})
+
+This is useful but less common than normal array membership queries.
+
+15. Array Query vs Exact Array Match ⭐⭐⭐
+
+This difference is important.
+
+Suppose:
+
+{
+    skills: [
+        "JavaScript",
+        "React"
+    ]
+}
+Search for an element
+db.students.find({
+    skills: "React"
+})
+
+This means:
+
+Does the array contain React?
+
+Search for the exact array
+db.students.find({
+    skills: ["JavaScript", "React"]
+})
+
+This is much stricter.
+
+It looks for an array matching the specified array, including its ordering.
+
+So:
+
+["JavaScript", "React"]
+
+and:
+
+["React", "JavaScript"]
+
+are not the same exact array.
+
+16. Query Arrays with $and
+
+Suppose:
+
+skills: [
+    "JavaScript",
+    "React",
+    "Node.js",
+    "MongoDB"
+]
+
+Find students having both React and MongoDB:
+
+db.students.find({
+    $and: [
+        { skills: "React" },
+        { skills: "MongoDB" }
+    ]
+})
+
+But $all is cleaner:
+
+db.students.find({
+    skills: {
+        $all: ["React", "MongoDB"]
+    }
+})
+🧠 Most Important Array Operators
+
+For your interview preparation, remember:
+
+Operator	Purpose
+$in	Matches at least one value
+$nin	Doesn't match any specified value
+$all	Array must contain all specified values
+$size	Exact array length
+$elemMatch	Match conditions against an array element
+$	Positional update operator
+$[]	Update all array elements
+$[identifier]	Update selected array elements
+
+The last three become especially important when you start updating arrays.
+================
+$each with $addToSet
+
+You can also use $each with $addToSet.
+
+db.students.updateOne(
+    { name: "Nasim" },
+    {
+        $addToSet: {
+            skills: {
+                $each: [
+                    "React",
+                    "MongoDB",
+                    "TypeScript"
+                ]
+            }
+        }
+    }
+)
+
+MongoDB adds only values that aren't already present.
+
+So if:
+
+React → already exists
+MongoDB → doesn't exist
+TypeScript → doesn't exist
+
+Only:
+
+MongoDB
+TypeScript
+
+are added.
+$position — Insert at a specific position ⭐⭐⭐
+
+By default, $push adds to the end.
+
+Example:
+
+skills: [
+    "JavaScript",
+    "React",
+    "Node.js"
+]
+
+Run:
+
+db.students.updateOne(
+    { name: "Nasim" },
+    {
+        $push: {
+            skills: {
+                $each: ["MongoDB"],
+                $position: 1
+            }
+        }
+    }
+)
+
+Result:
+
+skills: [
+    "JavaScript",
+    "MongoDB",
+    "React",
+    "Node.js"
+]
+
+Remember array indexes:
+
+JavaScript → 0
+MongoDB    → 1
+React      → 2
+Node.js    → 3
+$position: 0
+
+Insert at beginning:
+
+db.students.updateOne(
+    { name: "Nasim" },
+    {
+        $push: {
+            skills: {
+                $each: ["HTML"],
+                $position: 0
+            }
+        }
+    }
+)
+
+Result:
+
+[
+    "HTML",
+    "JavaScript",
+    "MongoDB",
+    "React",
+    "Node.js"
+]
+6. $slice — Limit array size ⭐⭐⭐
+
+This is particularly useful for things like:
+
+Recent notifications
+Recent searches
+Latest messages
+Top N items
+Recent activities
+
+Suppose:
+
+skills: [
+    "HTML",
+    "CSS",
+    "JavaScript",
+    "React",
+    "Node.js"
+]
+
+You can limit the resulting array using $slice.
+
+db.students.updateOne(
+    { name: "Nasim" },
+    {
+        $push: {
+            skills: {
+                $each: ["MongoDB"],
+                $slice: -3
+            }
+        }
+    }
+)
+
+$slice: -3 means:
+
+Keep the last 3 elements.
+
+Result:
+
+skills: [
+    "React",
+    "Node.js",
+    "MongoDB"
+]
+$slice: 3
+
+Positive number keeps the first N elements.
+
+$slice: 3
+
+Example:
+
+Before:
+[A, B, C, D, E]
+
+After:
+[A, B, C]
+$slice: -3
+
+Negative number keeps the last N.
+
+Before:
+[A, B, C, D, E]
+
+After:
+[C, D, E]
+=================
+$pop vs $pull
+
+This is a common interview question.
+
+$pop
+
+Removes based on position:
+
+$pop: {
+    skills: 1
+}
+
+→ remove last.
+
+$pull
+
+Removes based on value/condition:
+
+$pull: {
+    skills: "React"
+}
+
+→ remove React.
+
+Operator	Removes
+$pop	First/last element
+$pull	Matching elements
+======================
+13. $[] — Update ALL array elements
+
+This is very important.
+
+Suppose:
+
+courses: [
+    {
+        name: "MongoDB",
+        marks: 80
+    },
+    {
+        name: "JavaScript",
+        marks: 85
+    },
+    {
+        name: "React",
+        marks: 90
+    }
+]
+
+You want to increase every course's marks by 5.
+
+Use $[]:
+
+db.students.updateOne(
+    { name: "Nasim" },
+    {
+        $inc: {
+            "courses.$[].marks": 5
+        }
+    }
+)
+
+Result:
+
+courses: [
+    {
+        name: "MongoDB",
+        marks: 85
+    },
+    {
+        name: "JavaScript",
+        marks: 90
+    },
+    {
+        name: "React",
+        marks: 95
+    }
+]
+Meaning
+$[]
+ ↓
+Every element in the array
+
+So:
+
+"courses.$[].marks"
+
+means:
+
+Go through every courses element and update its marks.
+
+🔥 14. $[identifier] — Update selected array elements
+
+This is more powerful than $[].
+
+Suppose:
+
+courses: [
+    {
+        name: "MongoDB",
+        marks: 70
+    },
+    {
+        name: "JavaScript",
+        marks: 85
+    },
+    {
+        name: "React",
+        marks: 75
+    }
+]
+
+You only want to increase marks for courses where:
+
+marks < 80
+
+Use:
+
+db.students.updateOne(
+    { name: "Nasim" },
+    {
+        $inc: {
+            "courses.$[course].marks": 5
+        }
+    },
+    {
+        arrayFilters: [
+            {
+                "course.marks": {
+                    $lt: 80
+                }
+            }
+        ]
+    }
+)
+
+Result:
+
+courses: [
+    {
+        name: "MongoDB",
+        marks: 75
+    },
+    {
+        name: "JavaScript",
+        marks: 85
+    },
+    {
+        name: "React",
+        marks: 80
+    }
+]
+
+Only the matching elements changed.
+
+$[] vs $[identifier] ⭐⭐⭐⭐⭐
+
+This is an important interview question.
+
+$[]
+
+Update every element.
+
+"courses.$[].marks"
+MongoDB → update
+JavaScript → update
+React → update
+$[identifier]
+
+Update only elements matching arrayFilters.
+
+"courses.$[course].marks"
+MongoDB → maybe update
+JavaScript → maybe update
+React → maybe update
+
+based on:
+
+arrayFilters: [
+    {
+        "course.marks": { $lt: 80 }
+    }
+]
+Remember
+$[]
+   ↓
+ALL
+
+$[identifier]
+   ↓
+FILTERED
+🔥 15. $[identifier] with a specific course
+
+Suppose:
+
+courses: [
+    { name: "MongoDB", marks: 70 },
+    { name: "JavaScript", marks: 85 },
+    { name: "React", marks: 75 }
+]
+
+You want to add 10 marks only to MongoDB.
+
+db.students.updateOne(
+    { name: "Nasim" },
+    {
+        $inc: {
+            "courses.$[course].marks": 10
+        }
+    },
+    {
+        arrayFilters: [
+            {
+                "course.name": "MongoDB"
+            }
+        ]
+    }
+)
+
+Result:
+
+courses: [
+    { name: "MongoDB", marks: 80 },
+    { name: "JavaScript", marks: 85 },
+    { name: "React", marks: 75 }
+]
+🧠 Complete Operator Comparison
+Operator	Purpose	Example
+$push	Add element	Add "MongoDB"
+$addToSet	Add without duplicate	Add "React" once
+$each	Add multiple values	Add 4 skills
+$position	Insert at index	Insert at index 0
+$slice	Limit resulting array	Keep last 5
+$pull	Remove matching values	Remove "React"
+$pop	Remove first/last	Remove last
+$[]	Update every array element	Increase all marks
+$[id]	Update filtered elements	Increase marks < 40
+================================
+Update Operations
+
+This is the U in CRUD.
+
+$set
+
+Update Nasim's marks:
+
+db.students.updateOne(
+    { email: "nasim@example.com" },
+    {
+        $set: {
+            marks: 90
+        }
+    }
+)
+
+Check:
+
+db.students.findOne({
+    email: "nasim@example.com"
+})
+$inc
+
+Increase marks by 5:
+
+db.students.updateOne(
+    { email: "nasim@example.com" },
+    {
+        $inc: {
+            marks: 5
+        }
+    }
+)
+
+If marks = 90:
+
+90 + 5 = 95
+
+This is extremely useful for counters.
+
+$mul
+
+Multiply marks:
+
+db.students.updateOne(
+    { email: "nasim@example.com" },
+    {
+        $mul: {
+            marks: 1.05
+        }
+    }
+)
+$unset
+
+Remove a field:
+
+db.students.updateOne(
+    { email: "nasim@example.com" },
+    {
+        $unset: {
+            feesPaid: ""
+        }
+    }
+)
+🔥 14. Array Update Operators
+$push
+
+Add a skill:
+
+db.students.updateOne(
+    { email: "nasim@example.com" },
+    {
+        $push: {
+            skills: "TypeScript"
+        }
+    }
+)
+$addToSet
+
+Add only if it doesn't already exist:
+
+db.students.updateOne(
+    { email: "nasim@example.com" },
+    {
+        $addToSet: {
+            skills: "TypeScript"
+        }
+    }
+)
+
+Difference:
+
+$push
+→ can create duplicates
+
+$addToSet
+→ avoids duplicate values
+$pull
+
+Remove a skill:
+
+db.students.updateOne(
+    { email: "nasim@example.com" },
+    {
+        $pull: {
+            skills: "TypeScript"
+        }
+    }
+)
+🔥 15. Update Many
+
+Make all BCA students active:
+
+db.students.updateMany(
+    { course: "BCA" },
+    {
+        $set: {
+            isActive: true
+        }
+    }
+)
+🔥 16. Delete
+
+This is the D in CRUD.
+
+Delete one:
+
+db.students.deleteOne({
+    email: "amit@example.com"
+})
+
+Delete many:
+
+db.students.deleteMany({
+    isActive: false
+})
+
+⚠️ Be careful with:
+
+db.students.deleteMany({})
+
+This deletes all documents in the collection.
