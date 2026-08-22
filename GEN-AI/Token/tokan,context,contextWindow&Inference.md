@@ -107,6 +107,8 @@ Sampling strategies (temperature, top-p, top-k, etc.) decide how creative or det
 - Diminishing returns beyond a certain length for many tasks
 
 ---
+---
+
 
 ### 6. Small Practical Project: Token Counter + Context Simulator
 
@@ -116,15 +118,13 @@ Here’s a simple, useful mini-project you can run locally.
 Count tokens of any text and simulate how much of a context window is used.
 
 **Requirements**:
-```bash
+
 pip install tiktoken
-```
 
 **Code** (`token_context_demo.py`):
     
     # You can also test with different sizes
     # simulate_context_usage(sample, max_context=1_000_000)
-```
 
 **How to use it**:
 1. Paste any text (article, code, chat history).
