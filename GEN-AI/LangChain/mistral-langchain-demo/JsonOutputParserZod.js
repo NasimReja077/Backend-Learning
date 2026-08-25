@@ -1,5 +1,10 @@
+import dotenv from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { ChatMistralAI } from "@langchain/mistralai";
+
+dotenv.config({ path: resolve(dirname(fileURLToPath(import.meta.url)), ".env") });
 
 // 1. Define the structure
 const reviewSchema = z.object({
