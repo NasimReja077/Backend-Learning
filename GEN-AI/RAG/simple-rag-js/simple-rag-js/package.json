@@ -1,0 +1,10 @@
+{
+  "name": "simple-rag-js",
+  "version": "1.0.0",
+  "description": "A minimal, dependency-free RAG (Retrieval-Augmented Generation) pipeline in JavaScript, built for learning.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  }
+}
