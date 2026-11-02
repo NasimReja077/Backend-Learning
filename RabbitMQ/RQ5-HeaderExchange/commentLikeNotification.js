@@ -16,7 +16,7 @@ const consumeAnyMatchingNotifications = async () => {
     await channel.bindQueue(q.queue, exchange, "", {
       "x-match": "any",
       "notification-type-comment": "comment",
-      "content-type-like": "like"
+      "notification-type-like": "like"
     });
 
     channel.consume(q.queue, (msg) => {

@@ -15,7 +15,7 @@ const consumeLiveStreamNotifications = async () => {
 
     await channel.bindQueue(q.queue, exchange, "", {
       "x-match": "all",
-      "notification-type": "Live_stream",
+      "notification-type": "live_stream",
       "content-type": "gaming"
     });
 

@@ -12,21 +12,36 @@ const sendNotification = async (headers, message) => {
 
     channel.publish(exchange, "", Buffer.from(message), {
       persistent: true,
-      headers
+      headers,
     });
 
     console.log(" Sent notification with headers");
 
-    setTimeout(() => {
-      connection.close();
-    }, 500);
+    await channel.close();
+    await connection.close();
   } catch (error) {
     console.error("Error:", error);
+    process.exitCode = 1;
   }
 };
 
-// Example usage
-sendNotification({ "x-match": "all", "notification-type": "new_video", "content-type": "video" }, "New music video uploaded");
-sendNotification({ "x-match": "all", "notification-type": "Live_stream", "content-type": "gaming" }, "Gaming live stream started");
-sendNotification({ "x-match": "any", "notification-type-comment": "comment", "content-type": "vlog" }, "New comment on your vlog");
-sendNotification({ "x-match": "any", "notification-type-like": "like", "content-type": "vlog" }, "New like on your vlog");
+const publishExamples = async () => {
+  await sendNotification(
+    { "notification-type": "new_video", "content-type": "video" },
+    "New music video uploaded"
+  );
+  await sendNotification(
+    { "notification-type": "live_stream", "content-type": "gaming" },
+    "Gaming live stream started"
+  );
+  await sendNotification(
+    { "notification-type-comment": "comment", "content-type": "vlog" },
+    "New comment on your vlog"
+  );
+  await sendNotification(
+    { "notification-type-like": "like", "content-type": "vlog" },
+    "New like on your vlog"
+  );
+};
+
+publishExamples();
