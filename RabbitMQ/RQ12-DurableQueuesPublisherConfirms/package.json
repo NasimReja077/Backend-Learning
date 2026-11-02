@@ -1,0 +1,15 @@
+{
+  "name": "rabbitmq-durability-publisher-confirms",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RabbitMQ durable queue, persistent delivery, and confirms example",
+  "main": "producer.js",
+  "scripts": {
+    "producer": "node producer.js",
+    "consumer": "node consumer.js"
+  },
+  "dependencies": {
+    "amqplib": "^2.2.0"
+  },
+  "type": "commonjs"
+}
