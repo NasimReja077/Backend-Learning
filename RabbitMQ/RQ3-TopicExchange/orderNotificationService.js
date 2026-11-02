@@ -7,10 +7,9 @@ const receiveMessages = async () => {
     const exchange = "notification_exchange";
     const queue = "order_queue";
 
-    await channel.bindQueue(queue, exchange,"order.*");
-    
     await channel.assertExchange(exchange, "topic", { durable: true });
     await channel.assertQueue(queue, { durable: true });
+    await channel.bindQueue(queue, exchange, "order.*");
 
     console.log("Waiting for messages");
     channel.consume(
@@ -18,7 +17,7 @@ const receiveMessages = async () => {
       (msg) => {
         if (msg !== null) {
           console.log(
-            `[Order Notification] Msg was consumed! with rout`
+            `[Order Notification] ${msg.fields.routingKey}: ${msg.content.toString()}`
           );
           channel.ack(msg);
         }

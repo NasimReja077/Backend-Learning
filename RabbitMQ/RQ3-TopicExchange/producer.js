@@ -1,26 +1,38 @@
 const amqp = require("amqplib");
 
-const announceNewProduct = async (product) => {
+const publishNotification = async (routingKey, notification) => {
   try {
     const connection = await amqp.connect("amqp://localhost");
     const channel = await connection.createChannel();
 
-    const exchange = "new_product_launch";
-    const exchangeType = "fanout";
+    const exchange = "notification_exchange";
 
-    await channel.assertExchange(exchange, exchangeType, { durable: true });
+    await channel.assertExchange(exchange, "topic", { durable: true });
 
-    const message = JSON.stringify(product);
+    const message = JSON.stringify(notification);
 
-    channel.publish(exchange, "", Buffer.from(message), { persistent: true });
-    console.log(" Sent => ", message);
+    channel.publish(exchange, routingKey, Buffer.from(message), {
+      persistent: true,
+    });
+    console.log(`Sent ${routingKey} => ${message}`);
 
-    setTimeout(() => {
-      connection.close();
-    }, 500);
+    await channel.close();
+    await connection.close();
   } catch (error) {
     console.error("Error:", error);
+    process.exitCode = 1;
   }
 };
 
-announceNewProduct({ id: 123, name: "iPhone 19 Pro Max", price: 200000 });
+const publishExamples = async () => {
+  await publishNotification("order.created", {
+    orderId: 123,
+    customerId: 45,
+  });
+  await publishNotification("payment.completed", {
+    orderId: 123,
+    amount: 200000,
+  });
+};
+
+publishExamples();
