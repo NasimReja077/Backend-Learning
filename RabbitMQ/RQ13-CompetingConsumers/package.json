@@ -1,0 +1,15 @@
+{
+  "name": "rabbitmq-competing-consumers",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RabbitMQ competing consumer worker example",
+  "main": "producer.js",
+  "scripts": {
+    "producer": "node producer.js",
+    "worker": "node worker.js"
+  },
+  "dependencies": {
+    "amqplib": "^2.2.0"
+  },
+  "type": "commonjs"
+}
