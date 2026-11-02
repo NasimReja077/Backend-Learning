@@ -1,0 +1,11 @@
+{
+  "name": "rabbitmq-monitoring-management",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RabbitMQ Management HTTP API monitoring example",
+  "main": "monitor.js",
+  "scripts": {
+    "monitor": "node monitor.js"
+  },
+  "type": "commonjs"
+}
