@@ -38,3 +38,22 @@ app.listen(3000, () => {
 // job lose
 // retry system
 // parallel worker
+
+
+
+/**
+ * 4. Understand all important Redis List methods
+Redis command	Purpose	ioredis method
+LPUSH	Add item to left	redis.lpush()
+RPUSH	Add item to right	redis.rpush()
+LPOP	Remove from left	redis.lpop()
+RPOP	Remove from right	redis.rpop()
+LLEN	Count list items	redis.llen()
+LRANGE	Get list elements	redis.lrange()
+LINDEX	Get item by index	redis.lindex()
+LREM	Remove matching items	redis.lrem()
+LTRIM	Keep a selected range	redis.ltrim()
+BLPOP	Blocking pop from left	redis.blpop()
+BRPOP	Blocking pop from right	redis.brpop()
+LMOVE	Move item between lists	redis.lmove()
+ */
