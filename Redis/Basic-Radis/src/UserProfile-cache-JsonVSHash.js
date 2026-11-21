@@ -36,3 +36,21 @@ app.listen(3000, () => {
 // hgetall -> like getting entier object
 
 // hset , hget, hdel, hexists
+
+
+/**
+ * 4. Other important Redis Hash commands
+These commands are useful when working with user profiles, shopping carts, and application settings.
+Command	Purpose	Example
+HSET	Add/update fields	HSET user:101 age 24
+HGET	Get one field	HGET user:101 name
+HGETALL	Get all fields	HGETALL user:101
+HMGET	Get multiple selected fields	HMGET user:101 name age
+HDEL	Delete fields	HDEL user:101 age
+HEXISTS	Check if a field exists	HEXISTS user:101 name
+HLEN	Count fields	HLEN user:101
+HKEYS	Get all field names	HKEYS user:101
+HVALS	Get all values	HVALS user:101
+HINCRBY	Increment a numeric field	HINCRBY user:101 age 1
+HSETNX	Set only if field doesn't exist	HSETNX user:101 name "Nasim
+ */
