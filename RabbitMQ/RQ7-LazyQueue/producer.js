@@ -10,7 +10,12 @@ async function setup(message) {
 
   await channel.assertExchange(exchangeName, "direct", { durable: true });
 
-  await channel.assertQueue(queueName, { durable: true });
+  await channel.assertQueue(queueName, { 
+    durable: true ,
+    arguments: {
+      "x-queue-mode": "lazy",
+    },
+  });
 
   await channel.bindQueue(queueName, exchangeName, routingKey);
   channel.publish(exchangeName, routingKey, Buffer.from(message), {
