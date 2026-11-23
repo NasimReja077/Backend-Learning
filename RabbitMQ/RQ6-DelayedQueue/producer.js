@@ -5,11 +5,15 @@ async function sendToDelayedQueue(batchId, orders, delay) {
   const channel = await connection.createChannel();
 
   const exchange = "delayed_exchange";
-  await channel.assertExchange(exchange, "x-delayed-message", {
-    arguments: { "x-delayed-type": "direct" },
+  await channel.assertExchange(
+    exchange, "x-delayed-message", {
+    arguments: { 
+      "x-delayed-type": "direct" 
+    },
   });
 
   const queue = "delayed_order_updates_queue";
+  
   await channel.assertQueue(queue, { durable: true });
   await channel.bindQueue(queue, exchange, "");
 
