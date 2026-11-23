@@ -1,0 +1,16 @@
+{
+  "name": "rabbitmq-sendtoqueue-nack-persistent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RabbitMQ sendToQueue, persistent messages, NACK retries, and DLQ example",
+  "main": "producer.js",
+  "scripts": {
+    "producer": "node producer.js",
+    "consumer": "node consumer.js",
+    "monitor": "node monitor.js"
+  },
+  "dependencies": {
+    "amqplib": "^2.2.0"
+  },
+  "type": "commonjs"
+}
