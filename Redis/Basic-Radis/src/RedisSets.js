@@ -1,3 +1,5 @@
+// topic - name: sets explanation for sadd, srem, sismember, sinter, scard, smembers
+
 import express from "express";
 import Redis from "ioredis";
 
@@ -89,9 +91,10 @@ app.listen(3000, () => {
 // Redis Sets -> dont allow duplicate valu
 // SADD -> add new member to a set
 // SREM -> remove specified member from the set
-// SISMEMBER 
-// SINTER
-// SCARD
+// SISMEMBER  -> check if a member exists in the set
+// SINTER -> intersection of multiple sets
+// SCARD -> get the number of members in a set
+// SMEMBERS -> get all members of a set
 
 /**
  * sadd ip 1 ->1
@@ -104,4 +107,11 @@ app.listen(3000, () => {
  * ---
  * // if exgit or not 
  * sismember ip 1 -> 1 
+ * 
+ * SINTER ip1 ip2 -> [1,2,3]
+ * 
+ * SCARD ip -> 3
+ * 
+ * SMEMBERS ip -> [1,2,3]
+ * 
  */

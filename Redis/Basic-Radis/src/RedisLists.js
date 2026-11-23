@@ -1,3 +1,5 @@
+// topic - name: lists explanation for lpush, rpush, lpop, rpop, llen, lmove, ltrim, blpop, brpop
+
 import express from "express";
 import Redis from "ioredis";
 
@@ -5,10 +7,11 @@ const app = express();
 app.use(express.json());
 
 const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-const redis = new Redis(redisUrl);
+const redis = new Redis(redisUrl); // regular Redis client for non-blocking operations
 const blockingRedis = new Redis(redisUrl);
 const listKey = (key) => `list:${key}`;
 
+// Helper function to read values from request body
 function readValues(body) {
     if (typeof body?.value === "string") {
         return [body.value];
@@ -163,4 +166,4 @@ app.listen(3000, () => {
 
 // del mssa key
 
-// KEYS user:*-
+// KEYS user:* - is a pattern to match keys in Redis. It will return all keys that start with "user:".

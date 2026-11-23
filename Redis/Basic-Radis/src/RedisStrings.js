@@ -1,3 +1,5 @@
+// topic - name: redis strings explanation for set, get, append, del
+
 import express from "express";
 import Redis from "ioredis";
 
@@ -47,6 +49,16 @@ app.delete("/strings/:key", async (req, res) => {
 app.listen(3000, () => {
     console.log("Server running on http://localhost:3000");
 });
+
+// set - store a string value under a key
+// get - retrieve a string value by key
+// append - add a string to the end of an existing string value
+// del - delete a string value by key
+
+// when to use - if you need to store and manage simple key-value pairs where the values are strings, such as user names, messages, or any other textual data.
+// example - storing user names, messages, or any other textual data that can be represented as strings.
+
+// Redis Strings -> store and manage simple key-value pairs
 
 
 /**

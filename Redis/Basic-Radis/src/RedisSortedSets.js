@@ -1,3 +1,5 @@
+// topic - name: sorted sets explanation for zadd, zrange, zrevrange, zrank
+
 import Redis from "ioredis";
 
 const client = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
@@ -30,6 +32,16 @@ try {
     await client.quit();
 }
 
+// zadd - add a member with a score to a sorted set
+// zrange - retrieve members from a sorted set within a score range
+// zrevrange - retrieve members from a sorted set within a score range in reverse order
+// zrank - get the rank of a member in a sorted set
+// zrevrank - get the rank of a member in a sorted set in reverse order
+// zscore - get the score of a member in a sorted set
+
+// when to use - if you need to maintain a sorted collection of unique members with associated scores, such as leaderboards, ranking systems, or any scenario where you need to retrieve members based on their scores in a specific order.
+
+// Redis Sorted Sets -> maintain a sorted collection of unique members with scores
 /**
  *zadd score 10 piyush
 (integer) 1

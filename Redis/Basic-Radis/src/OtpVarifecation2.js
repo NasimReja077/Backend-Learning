@@ -1,4 +1,4 @@
-
+// topic - name: queue explanation for lpush, rpop, lrange, lindex, lrem, ltrim, blpop, brpop, lmove
 import express from "express";
 import Redis from "ioredis";
 import dotenv from "dotenv";

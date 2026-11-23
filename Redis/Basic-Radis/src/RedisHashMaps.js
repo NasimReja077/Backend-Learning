@@ -1,3 +1,7 @@
+// topic - name: hashmaps explanation for hset, hget, hmget, hincrby, hdel, hexists, hgetall
+// it covers the basic hash map operations in Redis using hash data structure. The code below demonstrates how to implement a simple hash map system using Redis and Express.js.
+
+
 import Redis from "ioredis";
 
 const client = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
@@ -12,16 +16,16 @@ const bike = {
 try {
     await client.del(bikeKey);
 
-    const res1 = await client.hset(bikeKey, bike);
+    const res1 = await client.hset(bikeKey, bike); // hset returns the number of fields that were added to the hash, not including fields that were already present and updated. In this case, since the hash is new, it will return 4, indicating that 4 fields were added.when to use hset, you can use it to create a new hash or update an existing one. If the hash already exists, hset will update the specified fields with new values. If the hash does not exist, hset will create a new hash with the specified fields and values.
     console.log(res1); // 4
 
-    const res2 = await client.hget(bikeKey, "model");
+    const res2 = await client.hget(bikeKey, "model"); // hget returns the value associated with the specified field in the hash. In this case, it will return "Deimos", which is the value of the "model" field in the hash.
     console.log(res2); // "Deimos"
 
     const res3 = await client.hget(bikeKey, "price");
     console.log(res3); // "4972"
 
-    const res4 = await client.hgetall(bikeKey);
+    const res4 = await client.hgetall(bikeKey); // hgetall returns an object containing all the fields and their values in the hash. In this case, it will return an object with all the fields and their corresponding values in the hash.
     console.log(res4);
 
     await client.del(bikeKey);

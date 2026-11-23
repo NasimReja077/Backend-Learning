@@ -41,6 +41,8 @@ app.post("/notifications", async (req, res) => {
             JSON.stringify(payload)
         );
 
+        // Return response with the number of subscribers reached
+
         return res.status(200).json({
             success: true,
             message: "Notification published",
