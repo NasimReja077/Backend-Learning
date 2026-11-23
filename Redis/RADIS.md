@@ -1,6 +1,28 @@
 **Redis Fundamentals & Architecture**  
 Complete, detailed explanation with definitions, examples, pros/cons, real-life cases, architecture diagram, and a small project.
 
+> Redis is short for **Remote Dictionary Server**. This guide is designed for learning and interview revision. Run commands with `redis-cli`; Node.js examples use `ioredis`.
+
+---
+
+## Interview Master Index
+
+| Topic | Where to study |
+|---|---|
+| Redis fundamentals, architecture, pros/cons | Sections 1-6 |
+| Strings, hashes, lists, sets, sorted sets | Data Type sections |
+| Streams, bitmap, HyperLogLog, geospatial data | Advanced Data Types |
+| Keys, TTL, memory, eviction, big keys | Keys & Memory sections |
+| Pub/Sub, caching, locks, rate limiting | Distributed Systems sections |
+| Security, persistence, replication, cluster | Production & Interview sections |
+| Ultimate revision page | [Interview Master Page](#interview-master-page) |
+
+### 60-Second Interview Answer
+
+Redis is an open-source, in-memory data structure store commonly used for caching, sessions, queues, counters, pub/sub, leaderboards, rate limiting, and real-time features. It stores keys and rich values such as strings, hashes, lists, sets, sorted sets, streams, and bitmaps. Redis uses an event-driven architecture and is typically single-threaded for command execution, so commands are processed atomically. Redis supports RDB snapshots, append-only files, replication, Sentinel, and Cluster. It is extremely fast because the working set is in RAM, although it must be sized and monitored carefully.
+
+---
+
 ### 1. Definition
 
 **Redis** (Remote Dictionary Server) is an **open-source, in-memory data structure store**.
@@ -2318,4 +2340,1714 @@ Design your data so that no single key becomes too large.
 | Optimization           | Use correct data types + TTLs |
 
 ---
+---
+
+**Redis Pub/Sub Messaging**  
+Complete In-Depth Explanation (MERN / Node.js Focus)
+
+### 1. Definition
+
+**Pub/Sub** (Publish/Subscribe) is Redis’s built-in messaging system that allows **one-to-many** real-time communication.
+
+- **Publisher** → sends a message to a **channel**
+- **Subscriber** → listens to one or more channels and receives messages instantly
+
+It is completely **fire-and-forget**.  
+Redis does **not** store messages. If no one is subscribed at the moment a message is published, the message is **lost forever**.
+
+---
+
+### 2. Architecture Diagram
+
+```
+Publisher (Node.js)                  Redis Server                   Subscribers
+     |                                    |                              |
+     |  PUBLISH "notifications" "Hello"   |                              |
+     | --------------------------------→  |                              |
+     |                                    |  Message delivered instantly |
+     |                                    | ----------------------------→ Subscriber 1
+     |                                    | ----------------------------→ Subscriber 2
+     |                                    | ----------------------------→ Subscriber 3
+     |                                    |                              |
+```
+
+- Channels are just **string names** (e.g. `notifications`, `chat:room:101`, `user:1001:updates`)
+- Multiple subscribers can listen to the same channel
+- One publisher can send to many subscribers at once (message broadcasting)
+
+---
+
+### 3. Core Commands Cheat Sheet
+
+| Command                  | Description                                      | Example |
+|--------------------------|--------------------------------------------------|-------|
+| `PUBLISH channel message`| Send a message to a channel                      | `PUBLISH notifications "New order received"` |
+| `SUBSCRIBE channel1 channel2` | Subscribe to one or more channels            | `SUBSCRIBE notifications chat:general` |
+| `PSUBSCRIBE pattern`     | Subscribe using pattern (wildcard)               | `PSUBSCRIBE chat:*` or `user:*:updates` |
+| `UNSUBSCRIBE [channel]`  | Unsubscribe from channels                        | `UNSUBSCRIBE notifications` |
+| `PUNSUBSCRIBE [pattern]` | Unsubscribe from patterns                        | `PUNSUBSCRIBE chat:*` |
+| `PUBSUB CHANNELS`        | List active channels                             | - |
+| `PUBSUB NUMSUB channel`  | Number of subscribers on a channel               | - |
+| `PUBSUB NUMPAT`          | Number of pattern subscriptions                  | - |
+
+---
+
+### 4. Pattern Subscriptions (`PSUBSCRIBE`)
+
+You can subscribe to multiple channels using wildcards:
+
+| Pattern       | Matches                                      |
+|---------------|----------------------------------------------|
+| `chat:*`      | `chat:general`, `chat:room:101`, `chat:support` |
+| `user:*:updates` | `user:1001:updates`, `user:2002:updates`   |
+| `*`           | All channels                                 |
+| `news.*`      | `news.sports`, `news.tech`                   |
+
+**Example:**
+```bash
+PSUBSCRIBE chat:*
+```
+Now this subscriber will receive messages from **every** channel that starts with `chat:`.
+
+---
+
+### 5. Message Broadcasting
+
+When you do:
+```bash
+PUBLISH notifications "Server maintenance at 12 AM"
+```
+
+**Every** client currently subscribed to the `notifications` channel receives the message **instantly**.
+
+This is true broadcasting — one publish → many receivers.
+
+---
+
+### 6. Node.js (ioredis) Examples
+
+#### Publisher
+```js
+const Redis = require('ioredis');
+const redis = new Redis();
+
+await redis.publish('notifications', JSON.stringify({
+  title: 'New Order',
+  message: 'Order #1234 placed',
+  time: Date.now()
+}));
+```
+
+#### Subscriber
+```js
+const Redis = require('ioredis');
+const subscriber = new Redis();
+
+// Subscribe to specific channel
+await subscriber.subscribe('notifications');
+
+subscriber.on('message', (channel, message) => {
+  console.log(`Received from ${channel}:`, message);
+  const data = JSON.parse(message);
+  // send to frontend via Socket.io, etc.
+});
+```
+
+#### Pattern Subscription
+```js
+await subscriber.psubscribe('user:*:notifications');
+
+subscriber.on('pmessage', (pattern, channel, message) => {
+  console.log(`Pattern: ${pattern} | Channel: ${channel} | Message: ${message}`);
+});
+```
+
+**Important:**  
+In ioredis, once a connection is used for `SUBSCRIBE` or `PSUBSCRIBE`, it enters **subscriber mode** and can only run subscription-related commands. You normally create a **separate Redis connection** for publishing.
+
+---
+
+### 7. Pub/Sub Limitations (Very Important)
+
+| Limitation                        | Explanation |
+|-----------------------------------|-----------|
+| **No Persistence**                | Messages are not stored. If subscriber is offline → message is lost |
+| **No Message History**            | New subscribers cannot see old messages |
+| **No Guaranteed Delivery**        | At-most-once delivery |
+| **No Acknowledgments**            | Publisher doesn’t know if anyone received the message |
+| **No Consumer Groups**            | Cannot distribute messages among multiple workers easily |
+| **Blocking Connection**           | Subscriber connection cannot run normal commands |
+| **Not suitable for reliable queues** | Use Streams or external brokers instead |
+
+---
+
+### 8. Pub/Sub vs Streams (Comparison)
+
+| Feature                  | Pub/Sub                          | Streams                              |
+|--------------------------|----------------------------------|--------------------------------------|
+| Persistence              | No                               | Yes (append-only log)                |
+| Message History          | No                               | Yes                                  |
+| Offline Consumers        | Messages lost                    | Messages wait                        |
+| Consumer Groups          | No                               | Yes                                  |
+| Acknowledgments          | No                               | Yes (`XACK`)                         |
+| Ordering                 | Best-effort                      | Guaranteed                           |
+| Use Case                 | Real-time fire-and-forget        | Reliable event processing / queues   |
+| Complexity               | Very simple                      | Medium                               |
+
+**Rule of Thumb:**
+- Need **real-time + can afford message loss** → Pub/Sub
+- Need **reliability + history + multiple consumers** → Streams
+
+---
+
+### 9. Real-Life Use Cases
+
+| Use Case                        | Example |
+|--------------------------------|---------|
+| **Real-time Notifications**    | Order status, new message alerts, system alerts |
+| **Chat Applications**          | Room-based chat, private messages |
+| **Live Updates**               | Live scores, stock prices, auction bids |
+| **Presence System**            | User online/offline status |
+| **Live Dashboards**            | Real-time analytics push |
+| **Collaborative Apps**         | Multiple users editing the same document |
+| **Breaking News / Alerts**     | Push notifications to many users |
+
+**Companies using it:**  
+Many chat systems, notification services, live sports apps, collaborative tools, etc.
+
+---
+
+### 10. Small Project Example (MERN)
+
+**Real-time Notification System**
+
+```js
+// publisher (when new order is created)
+app.post('/order', async (req, res) => {
+  // ... save order to MongoDB
+
+  await redis.publish('notifications', JSON.stringify({
+    type: 'NEW_ORDER',
+    orderId: order._id,
+    userId: order.userId,
+    message: 'Your order has been placed!'
+  }));
+
+  res.json({ success: true });
+});
+
+// subscriber (usually in a separate process or with Socket.io)
+const subscriber = new Redis();
+subscriber.subscribe('notifications');
+
+subscriber.on('message', (channel, message) => {
+  const data = JSON.parse(message);
+  
+  // Send to specific user via Socket.io
+  io.to(data.userId).emit('notification', data);
+});
+```
+
+---
+
+### 11. Best Practices
+
+1. Use meaningful channel names → `user:1001:notifications`, `chat:room:55`
+2. Always create a **separate Redis connection** for subscribers
+3. Prefer **Streams** when you need reliability
+4. Don’t use Pub/Sub for critical data that must not be lost
+5. Combine with Socket.io / WebSockets on the frontend for real-time browser updates
+6. Use patterns (`PSUBSCRIBE`) carefully — too broad patterns can overwhelm subscribers
+
+---
+
+### Summary
+
+Redis Pub/Sub is excellent for **simple, real-time, fire-and-forget** messaging such as notifications, chat, and live updates.  
+It is extremely fast and easy to use, but it has serious limitations around persistence and reliability — that’s why **Streams** were introduced as a more powerful alternative.
+
+---
+**Complete Caching Concepts Guide** (Redis + MERN Focus)
+
+Here’s a clear and detailed explanation of every concept you listed.
+
+---
+
+### 1. What is Caching?
+
+**Caching** means storing frequently used data in a fast storage layer (like Redis) so that future requests can be served much faster instead of querying the slower primary database (MongoDB) every time.
+
+**Goal:** Reduce database load + improve response time.
+
+---
+
+### 2. Cache Hit vs Cache Miss
+
+| Term          | Meaning                                      | Result                  |
+|---------------|----------------------------------------------|-------------------------|
+| **Cache Hit** | Requested data is found in the cache         | Very fast response      |
+| **Cache Miss**| Requested data is **not** found in the cache | Must go to database     |
+
+**Hit Ratio** = Hits / (Hits + Misses)  
+Higher hit ratio = better caching performance.
+
+---
+
+### 3. Cache Invalidation
+
+**Cache Invalidation** means removing or updating outdated data in the cache so users don’t receive stale information.
+
+**Common strategies:**
+- Delete the key when data is updated (`DEL user:1001`)
+- Update the cache with new data
+- Use short TTL so data expires automatically
+- Event-based invalidation (when MongoDB document changes)
+
+**Famous quote:**  
+> “There are only two hard things in Computer Science: cache invalidation and naming things.”
+
+---
+
+### 4. Caching Patterns
+
+#### A. Cache-Aside Pattern (Lazy Loading) – Most Common
+- Application is responsible for reading and writing the cache.
+- On read → Check cache → If miss, load from DB → Store in cache.
+- On write → Update DB → Delete/invalidate cache.
+
+**Best for:** Most MERN applications.
+
+#### B. Read-Through Caching
+- Application only talks to the cache.
+- On miss, the **cache itself** loads data from the database.
+
+#### C. Write-Through Caching
+- Application writes to the cache.
+- Cache **synchronously** writes to the database.
+- Ensures cache and DB are always consistent.
+- Slightly slower writes.
+
+#### D. Write-Behind (Write-Back) Caching
+- Application writes only to the cache.
+- Cache writes to the database **asynchronously** later.
+- Extremely fast writes.
+- Risk of data loss if cache crashes before flushing.
+
+#### E. Write-Around Caching
+- Application writes **directly to the database**.
+- Cache is only populated on read (Cache-Aside style).
+- Avoids filling the cache with data that might not be read again soon.
+
+---
+
+### 5. TTL-based Caching
+
+**TTL (Time To Live)** automatically deletes a key after a set time.
+
+```js
+await redis.set('user:1001', JSON.stringify(user), 'EX', 600); // 10 minutes
+```
+
+**Benefits:**
+- Prevents stale data forever
+- Automatically frees memory
+- Simple way to handle invalidation
+
+**Best Practice:** Add random jitter to TTL to avoid many keys expiring at the same time.
+
+---
+
+### 6. Cache Warming
+
+**Cache Warming** means pre-loading important data into the cache **before** users request it.
+
+**Examples:**
+- Load top 100 products when the server starts
+- Pre-cache popular user profiles
+- Warm cache after deployment
+
+Helps avoid cache misses during peak traffic.
+
+---
+
+### 7. Major Caching Problems
+
+#### A. Cache Stampede (Thundering Herd)
+Many requests for the same expired key hit the database at the same time.
+
+**Solutions:**
+- Use distributed lock (only one request rebuilds the cache)
+- Probabilistic early expiration
+- Background refresh
+
+#### B. Cache Penetration
+Requests for data that **never exists** in the database (attackers can exploit this).
+
+**Solutions:**
+- Cache empty/null results (Negative Caching)
+- Use Bloom Filter
+- Validate input
+
+#### C. Cache Avalanche
+Many keys expire at the **same moment** → sudden massive load on the database.
+
+**Solutions:**
+- Add random TTL jitter
+- High availability Redis setup
+- Circuit breaker
+
+#### D. Negative Caching
+Caching the fact that data **does not exist**.
+
+```js
+if (!user) {
+  await redis.set(`user:${id}`, 'null', 'EX', 60);
+}
+```
+
+Prevents repeated database queries for non-existent data.
+
+---
+
+### 8. Cache Eviction Policies
+
+When Redis reaches `maxmemory`, it starts removing keys according to the configured policy.
+
+#### Maxmemory Configuration
+```conf
+maxmemory 2gb
+maxmemory-policy allkeys-lru
+```
+
+You should **always** set `maxmemory` in production.
+
+---
+
+### 9. Eviction Algorithms
+
+| Policy              | Full Form                     | How it Works                              | Best For |
+|---------------------|-------------------------------|-------------------------------------------|----------|
+| **LRU**             | Least Recently Used           | Removes keys that haven’t been used for the longest time | General caching (most popular) |
+| **LFU**             | Least Frequently Used         | Removes keys that are used least often    | When some keys are extremely popular |
+| **FIFO**            | First In First Out            | Removes the oldest inserted keys          | Rarely used |
+| **Random**          | -                             | Deletes random keys                       | Simple but not smart |
+| **TTL-based**       | volatile-ttl                  | Removes keys with shortest remaining TTL  | When using expiration |
+
+**Recommended for most MERN apps:**
+```conf
+maxmemory-policy allkeys-lru
+```
+or
+```conf
+maxmemory-policy allkeys-lfu
+```
+
+- `allkeys-*` → Can remove any key
+- `volatile-*` → Only removes keys that have a TTL set
+
+---
+
+### Quick Summary Table
+
+| Concept              | One-line Meaning |
+|----------------------|------------------|
+| Caching              | Store data in fast memory for quicker access |
+| Cache Hit / Miss     | Found vs Not Found in cache |
+| Cache Invalidation   | Removing/updating old data |
+| Cache-Aside          | App manages the cache (most common) |
+| Write-Through        | Write to cache + DB at the same time |
+| Write-Behind         | Write to cache first, DB later |
+| TTL                  | Auto-expire keys |
+| Cache Warming        | Pre-load important data |
+| Stampede             | Many requests rebuild same key |
+| Penetration          | Queries for non-existent data |
+| Avalanche            | Many keys expire together |
+| Negative Caching     | Cache “not found” results |
+| LRU / LFU            | Smart ways to remove old data when memory is full |
+
+---
+**Redis Caching Patterns**  
+Complete In-Depth Guide (MERN / Node.js Focus)
+
+Caching is one of the most common and important uses of Redis. Choosing the right pattern (and handling the common problems) is a frequent interview topic and critical for real projects.
+
+---
+
+### 1. Main Caching Patterns
+
+| Pattern              | How it Works                                      | Who is Responsible | Best For |
+|----------------------|---------------------------------------------------|--------------------|----------|
+| **Cache-Aside** (Lazy Loading) | Application checks cache first. On miss → load from DB → store in cache | Application        | Most common, general purpose |
+| **Read-Through**     | Application always talks to cache. Cache loads data from DB on miss | Cache library/layer | Simplified application code |
+| **Write-Through**    | Application writes to cache → cache writes to DB synchronously | Cache layer        | Strong consistency needed |
+| **Write-Behind** (Write-Back) | Application writes to cache → cache writes to DB asynchronously later | Cache layer        | High write performance |
+| **Refresh-Ahead**    | Cache proactively refreshes data before it expires | Cache layer        | Predictable access patterns |
+
+---
+
+### 2. Cache-Aside (Lazy Loading) – Most Popular
+
+**Flow:**
+1. Application receives request
+2. Check Redis
+3. **Cache Hit** → return data
+4. **Cache Miss** → query MongoDB → store result in Redis (with TTL) → return data
+
+**Node.js Example:**
+
+```js
+async function getUser(userId) {
+  const cacheKey = `user:${userId}`;
+
+  // 1. Try cache
+  let user = await redis.get(cacheKey);
+  if (user) {
+    console.log('Cache HIT');
+    return JSON.parse(user);
+  }
+
+  console.log('Cache MISS');
+
+  // 2. Get from MongoDB
+  user = await User.findById(userId);
+  if (!user) return null;
+
+  // 3. Store in Redis
+  await redis.set(cacheKey, JSON.stringify(user), 'EX', 600); // 10 minutes
+
+  return user;
+}
+```
+
+**Pros:**
+- Simple to implement
+- Only requested data is cached
+- Cache and DB can evolve independently
+
+**Cons:**
+- First request is always slow (cache miss)
+- Possible data inconsistency if DB is updated but cache is not invalidated
+
+---
+
+### 3. Write-Through
+
+**Flow:**
+- Application writes to the cache
+- Cache **synchronously** writes to the database
+- Then returns success
+
+**Pros:** Data in cache and DB is always consistent  
+**Cons:** Higher write latency (must wait for DB)
+
+---
+
+### 4. Write-Behind (Write-Back)
+
+**Flow:**
+- Application writes only to Redis
+- Redis acknowledges immediately
+- A background process later writes the data to MongoDB
+
+**Pros:** Extremely fast writes  
+**Cons:** Risk of data loss if Redis crashes before writing to DB  
+**Use case:** High-write systems (likes, views, analytics) where eventual consistency is acceptable
+
+---
+
+### 5. Refresh-Ahead
+
+The cache proactively refreshes data **before** it expires, based on predicted access patterns.
+
+Useful when you know certain keys will be accessed soon (e.g., popular products).
+
+---
+
+### 6. Common Caching Problems & Solutions
+
+These are **very frequently asked** in interviews.
+
+#### A. Cache Penetration
+**Problem:** Requests for data that does **not exist** in DB (and therefore never gets cached). Attackers can flood your DB.
+
+**Solutions:**
+- Cache null / empty results with short TTL
+- Bloom Filter (check if key might exist before querying DB)
+- Input validation
+
+```js
+if (!user) {
+  await redis.set(cacheKey, 'null', 'EX', 60); // cache the miss
+  return null;
+}
+```
+
+#### B. Cache Breakdown (Hot Key Problem)
+**Problem:** A very popular key expires → many requests hit the database at the same time.
+
+**Solutions:**
+- Use mutex / distributed lock when rebuilding the cache
+- Set logical expiration + random extra TTL
+- Keep hot keys permanently (or with very long TTL)
+
+#### C. Cache Avalanche
+**Problem:** Many keys expire at the **same time** → sudden heavy load on DB.
+
+**Solutions:**
+- Add random jitter to TTL (`EX 600 + Math.floor(Math.random() * 60)`)
+- Use high availability Redis (Sentinel / Cluster)
+- Circuit breaker pattern
+
+#### D. Cache Stampede / Thundering Herd
+**Problem:** Many concurrent requests for the same expired key all try to rebuild the cache.
+
+**Best Solutions:**
+1. **Distributed Lock** (only one request rebuilds the cache)
+2. **Probabilistic Early Expiration**
+3. Background refresh
+
+**Locking Example (recommended):**
+
+```js
+async function getUserWithLock(userId) {
+  const cacheKey = `user:${userId}`;
+  let user = await redis.get(cacheKey);
+
+  if (user) return JSON.parse(user);
+
+  const lockKey = `lock:user:${userId}`;
+  const locked = await redis.set(lockKey, '1', 'EX', 10, 'NX');
+
+  if (locked) {
+    try {
+      user = await User.findById(userId);
+      await redis.set(cacheKey, JSON.stringify(user), 'EX', 600);
+    } finally {
+      await redis.del(lockKey);
+    }
+  } else {
+    // Wait a bit and retry
+    await new Promise(r => setTimeout(r, 50));
+    return getUserWithLock(userId);
+  }
+
+  return user;
+}
+```
+
+---
+
+### 7. Best Practices for Caching in MERN
+
+1. Always set a **TTL** (never cache forever unless necessary).
+2. Prefer **Cache-Aside** for most applications.
+3. Use meaningful key names: `user:1001:profile`
+4. Add **random jitter** to TTL to prevent avalanche.
+5. Cache null values for a short time to prevent penetration.
+6. Invalidate cache properly on updates (or use short TTL).
+7. Monitor hit ratio (`INFO stats` → `keyspace_hits` / `keyspace_misses`).
+8. Avoid caching large objects or data that changes very frequently.
+
+---
+
+### 8. Small Project Example (Cache-Aside + Stampede Protection)
+
+You can combine the earlier page-views example with locking for production safety.
+
+---
+
+### Summary
+
+| Pattern / Problem       | Recommendation                          |
+|-------------------------|-----------------------------------------|
+| General Caching         | Cache-Aside                             |
+| Strong consistency      | Write-Through                           |
+| High write performance  | Write-Behind (with care)                |
+| Hot Key / Stampede      | Distributed Lock + single rebuild       |
+| Penetration             | Cache null + Bloom Filter               |
+| Avalanche               | Random TTL jitter                       |
+
+---
+
+**Redis Distributed Systems + Streams – In-Depth Explanation**  
+(MERN / Node.js Focus)
+
+This covers two important areas: **Distributed Systems patterns** using Redis and a deeper look at **Redis Streams**.
+
+---
+
+## Part 1: Distributed Systems with Redis
+
+### 1. Distributed Locks
+
+A **distributed lock** ensures that only one process/instance across multiple servers can execute a critical section at a time (e.g., updating inventory, processing a payment, generating a report).
+
+#### Simple & Recommended Way (Single Redis Instance)
+
+```js
+const lockKey = 'lock:order:1001';
+const lockValue = uuidv4(); // unique value per client
+const ttl = 30; // seconds
+
+// Acquire lock
+const result = await redis.set(lockKey, lockValue, 'EX', ttl, 'NX');
+
+if (result === 'OK') {
+  try {
+    // Critical section
+    await processOrder();
+  } finally {
+    // Safe release using Lua (important!)
+    const unlockScript = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    await redis.eval(unlockScript, 1, lockKey, lockValue);
+  }
+} else {
+  // Lock already held
+}
+```
+
+**Why unique value + Lua?**  
+Prevents one client from deleting another client’s lock after its own lock expired.
+
+#### Problems with Single-Instance Lock
+- If Redis master fails and a replica is promoted **before** the lock is replicated → two clients can hold the lock.
+- Process pause (GC) longer than TTL → lock expires while work is still running.
+
+---
+
+### 2. Redlock Algorithm
+
+**Redlock** (proposed by Redis creator antirez) is designed for higher fault tolerance.
+
+**How it works:**
+1. Use **N independent Redis masters** (usually 5, no replication between them).
+2. Client tries to acquire the same lock (same key + unique value + TTL) on all N instances.
+3. Lock is considered acquired only if:
+   - It succeeds on a **majority** (e.g., 3 out of 5)
+   - Total time taken < lock TTL
+4. Effective validity time = original TTL – time spent acquiring.
+5. To release → delete the key on **all** instances.
+
+**Pros:**
+- Survives failure of a minority of nodes
+- Better than single-instance for availability
+
+**Cons / Controversies:**
+- Relies on timing assumptions (clocks, network delay, process pauses)
+- No built-in **fencing token**
+- Criticized by Martin Kleppmann (author of *Designing Data-Intensive Applications*)
+- Still not fully safe for strong correctness under long GC pauses or clock jumps
+
+**Practical Advice (2026):**
+- Use simple `SET NX EX` + Lua for most cases (efficiency locks).
+- Use Redlock only when you need better availability and can tolerate rare dual-holders.
+- For **correctness-critical** systems (money, inventory) → prefer ZooKeeper, etcd, or database locks + fencing tokens + idempotency.
+
+---
+
+### 3. Race Conditions
+
+A **race condition** occurs when multiple processes access and modify shared data at the same time, leading to incorrect results.
+
+**Example:**
+Two users try to buy the last item in stock at the same moment → both succeed → overselling.
+
+**Solutions with Redis:**
+- Distributed locks
+- Atomic operations (`INCR`, `DECR`, `HINCRBY`)
+- Lua scripts (multi-step logic becomes atomic)
+- Optimistic locking with `WATCH` + `MULTI/EXEC`
+
+---
+
+### 4. Concurrency Control
+
+Ways to control concurrent access:
+
+| Method                  | Type          | Redis Feature                  | Best For |
+|-------------------------|---------------|--------------------------------|----------|
+| Distributed Lock        | Pessimistic   | `SET NX EX` + Lua              | Critical sections |
+| Optimistic Locking      | Optimistic    | `WATCH` + Transactions         | Low contention |
+| Atomic Commands         | Built-in      | `INCR`, `HINCRBY`, etc.        | Counters |
+| Lua Scripts             | Atomic        | `EVAL`                         | Complex logic |
+| Streams + Consumer Groups | Coordination | Message ownership            | Work queues |
+
+---
+
+### 5. Idempotency
+
+An operation is **idempotent** if executing it multiple times has the same effect as executing it once.
+
+**Why needed?**  
+In distributed systems, messages or requests can be retried (network issues, crashes, at-least-once delivery).
+
+**How to implement with Redis:**
+```js
+const idempotencyKey = `idempotent:${requestId}`;
+
+const alreadyProcessed = await redis.set(idempotencyKey, '1', 'EX', 86400, 'NX');
+
+if (alreadyProcessed !== 'OK') {
+  return; // already done
+}
+
+// Process the request safely
+```
+
+Very important when using Streams, job queues, or payment systems.
+
+---
+
+### 6. Leaderboards
+
+Best implemented with **Sorted Sets**.
+
+```js
+// Update score
+await redis.zincrby('leaderboard:game1', 50, 'player:1001');
+
+// Top 10
+const top10 = await redis.zrevrange('leaderboard:game1', 0, 9, 'WITHSCORES');
+
+// Rank of a player
+const rank = await redis.zrevrank('leaderboard:game1', 'player:1001');
+```
+
+---
+
+### 7. Distributed Counters
+
+Simple and atomic:
+```js
+await redis.incr('page:views:homepage');
+await redis.incrby('product:5001:sales', 5);
+```
+
+For unique counts → use **HyperLogLog** (`PFADD` / `PFCOUNT`).
+
+For high contention → combine with locks or Lua if needed.
+
+---
+
+### 8. Distributed Rate Limiting
+
+Common algorithms:
+
+| Algorithm          | Redis Data Structure     | Description |
+|--------------------|--------------------------|-----------|
+| Fixed Window       | String + INCR + TTL      | Simple but allows bursts at window edges |
+| Sliding Window Log | Sorted Set (timestamp)   | Accurate but more memory |
+| Sliding Window Counter | Hash or String        | Good balance |
+| Token Bucket       | String + Lua             | Smooth rate limiting |
+
+**Simple Fixed Window Example:**
+```js
+const key = `ratelimit:${userId}:${Math.floor(Date.now()/60000)}`;
+const count = await redis.incr(key);
+if (count === 1) await redis.expire(key, 60);
+
+if (count > 100) {
+  // rate limited
+}
+```
+
+---
+
+## Part 2: Redis Streams (Advanced)
+
+### 1. Consumer Groups
+
+A **Consumer Group** allows multiple consumers to share the work of reading a stream (like Kafka consumer groups).
+
+- Each message is delivered to **only one** consumer in the group.
+- Different groups can read the same stream independently.
+
+```js
+// Create group (starts from new messages)
+await redis.xgroup('CREATE', 'orders', 'processors', '$', 'MKSTREAM');
+```
+
+---
+
+### 2. Message Acknowledgment (`XACK`)
+
+When a consumer successfully processes a message, it must **acknowledge** it.
+
+```js
+await redis.xack('orders', 'processors', messageId);
+```
+
+Until acknowledged, the message stays in the **Pending Entries List (PEL)**.
+
+---
+
+### 3. Pending Messages (PEL)
+
+- Every message delivered via `XREADGROUP` goes into the PEL.
+- It stays there until `XACK` is called.
+- You can inspect pending messages with `XPENDING`.
+
+```js
+const pending = await redis.xpending('orders', 'processors');
+```
+
+---
+
+### 4. Message Delivery Semantics
+
+Redis Streams with Consumer Groups provide **at-least-once** delivery.
+
+- A message may be delivered more than once if the consumer crashes before `XACK`.
+- True exactly-once requires **idempotency** on the consumer side.
+
+---
+
+### 5. Consumer Recovery
+
+If a consumer dies:
+
+1. Messages stay in PEL.
+2. Another consumer can **claim** them using `XCLAIM` or `XAUTOCLAIM`.
+
+```js
+// Claim messages idle for more than 60 seconds
+const claimed = await redis.xautoclaim(
+  'orders', 'processors', 'consumer-2', 60000, '0-0', 'COUNT', 10
+);
+```
+
+**Best recovery pattern:**
+1. On startup → first process your own pending messages (`XREADGROUP` with ID `0`)
+2. Then read new messages (`>`)
+3. Periodically claim idle pending messages from dead consumers
+
+---
+
+### 6. Event-Driven Architecture with Streams
+
+Streams are excellent for event-driven systems:
+
+- **Producers** → `XADD` events
+- **Multiple independent consumers/groups** → process different concerns (email, analytics, inventory, notifications)
+- History is retained (until trimmed)
+- Supports replay and recovery
+
+**Typical flow:**
+```
+Order Created → XADD to "orders" stream
+     ↓
+Consumer Group "inventory" → reduce stock
+Consumer Group "email" → send confirmation
+Consumer Group "analytics" → update metrics
+```
+
+---
+
+### Summary Table
+
+| Concept              | Key Point                                      | Redis Tool |
+|----------------------|------------------------------------------------|----------|
+| Distributed Lock     | Mutual exclusion across servers                | `SET NX EX` + Lua / Redlock |
+| Race Condition       | Concurrent unsafe access                       | Locks / Atomic ops / Lua |
+| Idempotency          | Safe to retry                                  | Unique key + `SET NX` |
+| Leaderboard          | Rankings                                       | Sorted Set |
+| Rate Limiting        | Control request rate                           | INCR + TTL / Sorted Set |
+| Streams Delivery     | At-least-once                                  | Consumer Groups + XACK |
+| Recovery             | Handle crashed consumers                       | XPENDING + XCLAIM / XAUTOCLAIM |
+
+---
+**Redis Security + Performance**  
+Complete In-Depth Guide (MERN / Node.js Focus)
+
+---
+
+## Part 1: Redis Security
+
+### 1. Redis Authentication
+
+By default, Redis has **no password** (very dangerous).
+
+**Old way (Redis < 6):**
+```conf
+requirepass your_strong_password
+```
+
+**Client connection:**
+```js
+const redis = new Redis({
+  host: '127.0.0.1',
+  port: 6379,
+  password: process.env.REDIS_PASSWORD
+});
+```
+
+---
+
+### 2. ACL (Access Control Lists) – Redis 6+
+
+ACL is the modern and recommended way to manage users and permissions.
+
+**Create a user:**
+```bash
+ACL SETUSER appuser on >strongpassword ~* &* +@all
+```
+
+**Common ACL examples:**
+
+| Goal                         | ACL Command Example |
+|-----------------------------|---------------------|
+| Full access                 | `+@all` |
+| Read only                   | `+@read` |
+| Only specific commands      | `+get +set +hget +hset` |
+| Only specific key patterns  | `~user:* ~session:*` |
+| Deny dangerous commands     | `-@dangerous` or `-flushall -keys -config` |
+
+**List users:**
+```bash
+ACL LIST
+ACL WHOAMI
+```
+
+---
+
+### 3. User Permissions (Best Practices)
+
+- Never give the default `default` user full access in production.
+- Create separate users for different applications.
+- Follow **least privilege** principle.
+- Disable or rename dangerous commands (`FLUSHALL`, `FLUSHDB`, `KEYS`, `CONFIG`, `SHUTDOWN`, etc.).
+
+---
+
+### 4. TLS Encryption
+
+Encrypt data in transit between your Node.js app and Redis.
+
+**Enable TLS in `redis.conf`:**
+```conf
+port 0
+tls-port 6379
+tls-cert-file /path/to/redis.crt
+tls-key-file /path/to/redis.key
+tls-ca-cert-file /path/to/ca.crt
+```
+
+**Node.js (ioredis) with TLS:**
+```js
+const redis = new Redis({
+  host: 'your-redis-host',
+  port: 6379,
+  password: process.env.REDIS_PASSWORD,
+  tls: {
+    rejectUnauthorized: true
+  }
+});
+```
+
+---
+
+### 5. Protected Mode
+
+When Redis is started without a password and is bound to all interfaces, **Protected Mode** blocks external connections.
+
+```conf
+protected-mode yes   # default
+```
+
+Always keep it enabled unless you have proper authentication + firewall.
+
+---
+
+### 6. Network Binding
+
+By default Redis binds to `127.0.0.1` (safer).
+
+```conf
+bind 127.0.0.1
+```
+
+For remote access (not recommended without security):
+```conf
+bind 0.0.0.0
+```
+
+**Best Practice:** Bind only to private network IPs.
+
+---
+
+### 7. Firewall Configuration
+
+- Allow Redis port (6379 or custom) **only** from your application servers.
+- Use cloud security groups / firewall rules.
+- Never expose Redis directly to the public internet.
+
+---
+
+### 8. Secure Redis Deployment Checklist
+
+- Set a strong password or use ACL
+- Enable TLS
+- Bind to private IP only
+- Use firewall / security groups
+- Disable dangerous commands
+- Run Redis as a non-root user
+- Keep Redis updated
+- Use Redis + Sentinel or Cluster with authentication
+- Never commit passwords in code
+
+---
+
+### 9. Environment Variables & Secrets
+
+**Never hardcode secrets.**
+
+```js
+// .env
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=your_strong_password
+```
+
+```js
+const redis = new Redis({
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+  password: process.env.REDIS_PASSWORD
+});
+```
+
+Use tools like AWS Secrets Manager, HashiCorp Vault, or Doppler in production.
+
+---
+
+## Part 2: Redis Performance
+
+### 1. Redis Benchmarking
+
+**Tool:** `redis-benchmark` (comes with Redis)
+
+```bash
+redis-benchmark -h 127.0.0.1 -p 6379 -a password -t set,get -n 100000 -q
+```
+
+Useful flags:
+- `-n` → number of requests
+- `-c` → number of clients
+- `-P` → pipeline requests
+- `-t` → specific commands
+
+---
+
+### 2. SLOWLOG
+
+Shows commands that took longer than a threshold.
+
+```bash
+SLOWLOG GET 10
+SLOWLOG LEN
+SLOWLOG RESET
+```
+
+Configure threshold:
+```conf
+slowlog-log-slower-than 10000   # 10ms
+```
+
+---
+
+### 3. LATENCY Monitoring
+
+```bash
+LATENCY DOCTOR
+LATENCY LATEST
+LATENCY HISTORY command
+LATENCY RESET
+```
+
+Helps diagnose sudden latency spikes.
+
+---
+
+### 4. MEMORY Commands
+
+| Command            | Purpose |
+|--------------------|--------|
+| `MEMORY USAGE key` | Memory used by a specific key |
+| `MEMORY DOCTOR`    | Gives advice about memory issues |
+| `MEMORY STATS`     | Detailed memory statistics |
+| `MEMORY PURGE`     | Attempt to free free memory ( jemalloc ) |
+
+---
+
+### 5. INFO Command
+
+Most important diagnostic command:
+
+```bash
+INFO
+INFO memory
+INFO stats
+INFO clients
+INFO commandstats
+INFO keyspace
+```
+
+---
+
+### 6. Big Keys
+
+Large keys cause blocking and high memory usage.
+
+**Find them:**
+```bash
+redis-cli --bigkeys
+redis-cli --memkeys
+```
+
+**How to handle:**
+- Split big hashes/lists into smaller ones
+- Avoid `HGETALL`, `SMEMBERS`, `LRANGE 0 -1` on large collections
+- Use pagination or scanning
+
+---
+
+### 7. Hot Keys
+
+Keys that receive extremely high traffic.
+
+**Problems:** Can overload one Redis shard or cause CPU spikes.
+
+**Solutions:**
+- Local caching (in Node.js process)
+- Replicate hot keys
+- Use Redis Cluster carefully
+- Add randomness in key names if possible
+
+---
+
+### 8. Connection Pooling
+
+In Node.js, use connection pooling (ioredis does this well by default).
+
+```js
+const redis = new Redis({
+  host: '127.0.0.1',
+  maxRetriesPerRequest: 3,
+  enableReadyCheck: true,
+  // ioredis manages a pool internally
+});
+```
+
+Avoid creating a new connection on every request.
+
+---
+
+### 9. Pipelining
+
+Send multiple commands at once without waiting for individual replies → massive performance gain.
+
+```js
+const pipeline = redis.pipeline();
+
+pipeline.set('key1', 'value1');
+pipeline.set('key2', 'value2');
+pipeline.get('key1');
+
+const results = await pipeline.exec();
+```
+
+---
+
+### 10. Memory Optimization Techniques
+
+- Use Hash for objects instead of many Strings
+- Use Bitmap / HyperLogLog when possible
+- Set shorter TTLs
+- Avoid storing large JSON blobs
+- Enable compression where suitable
+- Monitor `mem_fragmentation_ratio`
+- Use appropriate eviction policy
+
+---
+
+### 11. Eviction Policies (Quick Recap)
+
+```conf
+maxmemory 2gb
+maxmemory-policy allkeys-lru
+```
+
+| Policy            | Best Use Case |
+|-------------------|---------------|
+| `allkeys-lru`     | General caching (most recommended) |
+| `allkeys-lfu`     | When access frequency matters |
+| `volatile-lru`    | Only expire keys that have TTL |
+| `noeviction`      | When data loss is unacceptable |
+
+---
+
+### Security + Performance Best Practices Summary
+
+**Security:**
+- Use ACL + strong passwords
+- Enable TLS
+- Never expose Redis publicly
+- Least privilege principle
+
+**Performance:**
+- Use Pipelining
+- Connection pooling
+- Monitor with `INFO`, `SLOWLOG`, `LATENCY`
+- Avoid big keys and hot keys
+- Set proper `maxmemory` + eviction policy
+- Prefer efficient data structures
+
+---
+
+## Interview Master Page
+
+### A. Redis in One Architecture Diagram
+
+```text
+                         APPLICATIONS
+      +------------------+------------------+------------------+
+      |   Web API        |  Worker / Queue  |  Live Features   |
+      +--------+---------+--------+---------+--------+---------+
+               |                  |                  |
+               +------------------+------------------+
+                                  |
+                         Redis client / ioredis
+                                  |
+                    +-------------v-------------+
+                    |      Redis Server         |
+                    |  Event loop + RESP        |
+                    |  command execution        |
+                    |  data structures in RAM   |
+                    +------+------+------+-----+
+                           |      |      |
+                 +---------+      |      +----------+
+                 |                |                 |
+          Persistence        Replication       Cluster
+          RDB / AOF          Replica nodes    Hash slots
+                 |                |                 |
+          Disk backup     Failover/Sentinel    Data shards
+```
+
+Redis Cluster automatically assigns keyspace across 16,384 hash slots. By default, the key name determines the slot; use `{tag}` to force related keys onto the same slot:
+
+```bash
+SET 'session:{alice}:profile' '{...}'
+SET 'session:{alice}:cart' '[...]'
+```
+
+### B. Cache-Aside Request Flow
+
+```text
+Client -> API -> cache key?
+                    |
+            Redis contains it?
+              /             \
+           YES               NO
+            |                 |
+       return data      query database
+       Cache HIT               |
+                              save in Redis with TTL
+                              return data
+                              Cache MISS
+```
+
+Example:
+
+```js
+async function getUser(id) {
+  const key = `user:${id}:profile`;
+  const cached = await redis.get(key);
+
+  if (cached) {
+    return JSON.parse(cached); // cache hit
+  }
+
+  const user = await User.findById(id).lean();
+  if (user) {
+    await redis.set(key, JSON.stringify(user), 'EX', 300);
+  } else {
+    await redis.set(key, 'null', 'EX', 30); // negative cache
+  }
+
+  return user;
+}
+```
+
+### C. Choose the Correct Redis Data Structure
+
+| Requirement | Use |
+|---|---|
+| Simple cache, flag, serialized config, counter | String |
+| Object with independently updated fields | Hash |
+| FIFO/LIFO queue or recent activity list | List |
+| Unique members, tags, followers, intersections | Set |
+| Ranking, leaderboard, priority queue | Sorted set |
+| Durable event log and worker groups | Stream |
+| Daily active users, 0/1 feature state | Bitmap |
+| Approximate distinct users in large data | HyperLogLog |
+| Nearby stores or delivery locations | Geospatial |
+
+### D. Master Command Cheat Sheet
+
+```bash
+# Connection and diagnostics
+PING
+INFO memory
+CLIENT LIST
+SLOWLOG GET 10
+DBSIZE
+
+# Keys
+SET user:1 "Nasim" EX 300
+GET user:1
+EXISTS user:1
+TTL user:1
+DEL user:1
+SCAN 0 MATCH "user:*" COUNT 100
+
+# String / number
+SETNX lock:job "1"
+INCR likes:post:42
+INCRBY inventory:sku:100 5
+DECR inventory:sku:100
+
+# Hash
+HSET user:1 name "Nasim" role "developer"
+HGET user:1 name
+HGETALL user:1
+HINCRBY user:1 points 10
+
+# List
+LPUSH queue:emails job-1
+BRPOP queue:emails 5
+LTRIM feed:1 0 99
+
+# Set
+SADD post:42:tags node redis backend
+SMEMBERS post:42:tags
+SISMEMBER post:42:tags redis
+SINTER user:1:followers user:2:followers
+
+# Sorted set
+ZADD leaderboard 500 user:1
+ZINCRBY leaderboard 25 user:1
+ZREVRANGE leaderboard 0 9 WITHSCORES
+ZRANK leaderboard user:1
+
+# Stream
+XADD events * type "user.created" userId "1"
+XREAD COUNT 10 STREAMS events 0
+XGROUP CREATE events workers 0 MKSTREAM
+XREADGROUP GROUP workers worker-1 COUNT 10 BLOCK 5000 STREAMS events >
+
+# Pub/Sub
+PUBLISH notifications '{"title":"Welcome"}'
+SUBSCRIBE notifications
+PSUBSCRIBE "notifications:*"
+
+# Bitmap
+SETBIT dau:2026-11-23 42 1
+GETBIT dau:2026-11-23 42
+BITCOUNT dau:2026-11-23
+```
+
+### E. Interview Problem Patterns
+
+#### Pattern 1: Atomic inventory reservation
+
+Never perform a separate `GET` and `SET` for stock updates. Use an atomic Lua script or a Redis atomic command:
+
+```lua
+-- reserve-stock.lua
+local stock = tonumber(redis.call("GET", KEYS[1]) or "0")
+local quantity = tonumber(ARGV[1])
+
+if stock < quantity then
+  return 0
+end
+
+redis.call("DECRBY", KEYS[1], quantity)
+return 1
+```
+
+```js
+const result = await redis.eval(
+  `local stock = tonumber(redis.call("GET", KEYS[1]) or "0")
+   local quantity = tonumber(ARGV[1])
+   if stock < quantity then return 0 end
+   redis.call("DECRBY", KEYS[1], quantity)
+   return 1`,
+  1,
+  'inventory:sku:100',
+  2
+);
+```
+
+#### Pattern 2: Distributed lock
+
+```js
+const token = crypto.randomUUID();
+const acquired = await redis.set(lockKey, token, 'NX', 'PX', 10000);
+
+if (acquired === 'OK') {
+  try {
+    // Critical section
+  } finally {
+    await redis.eval(
+      `if redis.call("GET", KEYS[1]) == ARGV[1] then
+         return redis.call("DEL", KEYS[1])
+       end
+       return 0`,
+      1,
+      lockKey,
+      token
+    );
+  }
+}
+```
+
+The check-before-delete Lua script prevents one process from deleting a lock that has already expired and been acquired by another process.
+
+#### Pattern 3: Fixed-window rate limiter
+
+```js
+async function allowRequest(userId) {
+  const key = `ratelimit:${userId}:${Math.floor(Date.now() / 60000)}`;
+  const count = await redis.incr(key);
+
+  if (count === 1) {
+    await redis.expire(key, 60);
+  }
+
+  return count <= 100;
+}
+```
+
+For precise behavior across a rolling window, use a sorted set:
+
+```js
+async function slidingWindow(userId) {
+  const now = Date.now();
+  const key = `ratelimit:${userId}`;
+
+  await redis.zremrangebyscore(key, '-inf', now - 60_000);
+  await redis.zadd(key, now, `${now}:${crypto.randomUUID()}`);
+  await redis.expire(key, 60);
+
+  const count = await redis.zcard(key);
+  return count <= 100;
+}
+```
+
+### F. Interview Main Project: Redis Feature API
+
+This complete example combines caching, atomic counters, an inventory lock, leaderboards, and a queue into one Express service.
+
+```text
+Basic-Radis/
+  src/
+    index.js
+    redis.js
+  package.json
+  docker-compose.yml
+```
+
+Install and start Redis:
+
+```bash
+npm install express ioredis
+docker compose up -d redis
+```
+
+Create `src/redis.js`:
+
+```js
+import Redis from 'ioredis';
+
+export const redis = new Redis(
+  process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+  {
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: true,
+  }
+);
+```
+
+Create `src/index.js`:
+
+```js
+import express from 'express';
+import crypto from 'node:crypto';
+import { redis } from './redis.js';
+
+const app = express();
+app.use(express.json());
+
+app.get('/health', async (_req, res) => {
+  res.json({ redis: await redis.ping() });
+});
+
+// Cache-aside API
+app.get('/users/:id', async (req, res) => {
+  const key = `user:${req.params.id}:profile`;
+  const cached = await redis.get(key);
+
+  if (cached) {
+    return res.json({ source: 'redis', data: JSON.parse(cached) });
+  }
+
+  const data = {
+    id: req.params.id,
+    name: `User ${req.params.id}`,
+  };
+
+  await redis.set(key, JSON.stringify(data), 'EX', 60);
+  res.json({ source: 'database', data });
+});
+
+// Atomic page-view counter
+app.post('/posts/:id/view', async (req, res) => {
+  const count = await redis.incr(`post:${req.params.id}:views`);
+  res.json({ views: count });
+});
+
+// Redis leaderboard
+app.post('/leaderboard/score', async (req, res) => {
+  const { userId, score } = req.body;
+  if (!userId || !Number.isFinite(Number(score))) {
+    return res.status(400).json({ error: 'userId and numeric score are required' });
+  }
+
+  await redis.zadd('leaderboard', Number(score), userId);
+  const top10 = await redis.zrevrange('leaderboard', 0, 9, 'WITHSCORES');
+  res.json({ top10 });
+});
+
+// Fixed-window rate limit
+app.post('/comments', async (req, res) => {
+  const userId = req.ip;
+  const window = Math.floor(Date.now() / 60_000);
+  const key = `comments:${userId}:${window}`;
+
+  const count = await redis.incr(key);
+  if (count === 1) await redis.expire(key, 60);
+
+  if (count > 10) {
+    return res.status(429).json({ error: 'Try again later' });
+  }
+
+  res.status(201).json({ comment: req.body.text });
+});
+
+// Token-safe distributed lock
+app.post('/jobs/report', async (_req, res) => {
+  const key = 'lock:generate-report';
+  const token = crypto.randomUUID();
+  const acquired = await redis.set(key, token, 'NX', 'PX', 10_000);
+
+  if (acquired !== 'OK') {
+    return res.status(409).json({ error: 'Report is already being generated' });
+  }
+
+  try {
+    await redis.lpush(
+      'jobs:reports',
+      JSON.stringify({ id: crypto.randomUUID(), type: 'monthly-report' })
+    );
+    res.status(202).json({ status: 'queued' });
+  } finally {
+    await redis.eval(
+      `if redis.call("GET", KEYS[1]) == ARGV[1] then
+         return redis.call("DEL", KEYS[1])
+       end
+       return 0`,
+      1,
+      key,
+      token
+    );
+  }
+});
+
+app.listen(3000, () =>
+  console.log('Redis interview API: http://localhost:3000')
+);
+```
+
+Run:
+
+```bash
+npm run dev
+curl http://localhost:3000/health
+curl http://localhost:3000/users/42
+curl -X POST http://localhost:3000/posts/42/view
+curl -X POST http://localhost:3000/comments -H "Content-Type: application/json" -d "{\"text\":\"Hello Redis\"}"
+```
+
+### G. Production Failure & Trade-Off Questions
+
+| Interview question | Strong answer |
+|---|---|
+| Redis is down. What happens? | API should fail gracefully or bypass cache; Redis data that is not durable or replicated may be unavailable. The database must remain authoritative. |
+| Cache holds stale data | Use TTL, explicit invalidation on writes, versioned keys, or event-driven invalidation. |
+| Same cache key misses for many users | Add random TTL jitter, request coalescing, locks, and cache warming. |
+| Redis memory is full | Add `maxmemory`, choose an eviction policy, delete hot/big keys, or scale vertically/horizontally. |
+| A key is too large | Split it, paginate collection reads, avoid `HGETALL`/`LRANGE 0 -1`, and monitor `MEMORY USAGE`. |
+| Need persistence | Use AOF for stronger write durability and RDB for backup/restore; test recovery regularly. |
+| Need high availability | Use Redis Sentinel or Redis Cluster with replicas, authentication, TLS, health checks, and backpressure. |
+| Pub/Sub message is lost | Pub/Sub is ephemeral; use Streams or a dedicated durable broker when delivery guarantees are required. |
+| Redis lock concerns | Use a unique token, short TTL, Lua compare-and-delete, and fencing tokens for correctness in distributed operations. |
+| Redis is a database or cache? | Redis can serve both roles, but an external database is usually authoritative unless Redis persistence and recovery requirements are explicitly designed. |
+
+### H. Redis Cluster vs Replication vs Sentinel
+
+```text
+Replication:          same data on multiple nodes
+                      one primary writes; replicas serve/read (if configured)
+
+Sentinel:             monitors a primary-replica system
+                      provides automatic primary failover
+                      still has one primary data path, not horizontal sharding
+
+Cluster:              divides keyspace across 16,384 slots
+                      shards write load across primaries
+                      each primary normally has replicas
+                      suitable for horizontal scaling
+```
+
+### I. Persistence Comparison
+
+| Feature | RDB | AOF |
+|---|---|---|
+| Format | Point-in-time binary snapshot | Append-only write log |
+| Writes | Fork-based periodic snapshot | Every write, every second, or every write |
+| Recovery | Fast | Usually slower than RDB |
+| Durability | May lose changes since the last snapshot | Better durability depending on `fsync` policy |
+| Typical use | Backups and recovery | Durable primary persistence |
+
+Best practice: many production systems use RDB plus AOF. Persistence settings and recovery procedures should be tested.
+
+### J. One-Minute Final Revision
+
+1. Redis is RAM-first and supports atomic command execution.
+2. Redis 6+ uses I/O threads, while command execution remains in Redis's main thread model.
+3. Cache-aside is the most common cache pattern.
+4. TTL, eviction, and negative caching prevent stale or unbounded data.
+5. Use `SET key value NX EX ttl` for a safe short-lived lock.
+6. Delete a distributed lock only with a Lua compare-and-delete script.
+7. Use Streams for durable event processing; Pub/Sub is not durable.
+8. Avoid `KEYS *`, large keys, blocking commands, and `MONITOR` in production.
+9. Use `SCAN`, pipelining, and connection reuse.
+10. Use RDB/AOF, replicas, TLS, ACL, and least-privilege credentials.
+
 ---
