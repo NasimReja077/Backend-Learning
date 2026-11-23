@@ -5,9 +5,12 @@ const announceNewProduct = async (product) => {
     const connection = await amqp.connect("amqp://localhost");
     const channel = await connection.createChannel();
 
+    // Define the exchange name and type
     const exchange = "new_product_launch";
+    // Define the exchange type as "fanout" for broadcasting messages to all bound queues
     const exchangeType = "fanout";
 
+    // Assert the exchange with the specified type and durability
     await channel.assertExchange(exchange, exchangeType, { durable: true });
 
     const message = JSON.stringify(product);

@@ -13,6 +13,8 @@ const consumeAnyMatchingNotifications = async () => {
     const q = await channel.assertQueue("", { exclusive: true });
     console.log("Waiting for any matching notifications");
 
+    // Bind the queue to the exchange with "any" match for comment and like notifications
+    
     await channel.bindQueue(q.queue, exchange, "", {
       "x-match": "any",
       "notification-type-comment": "comment",
