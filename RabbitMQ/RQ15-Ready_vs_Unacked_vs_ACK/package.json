@@ -1,0 +1,15 @@
+{
+  "name": "rabbitmq-ready-unacked-ack",
+  "version": "1.0.0",
+  "description": "RabbitMQ Ready, Unacked, and acknowledgement demonstration",
+  "main": "producer.js",
+  "scripts": {
+    "producer": "node producer.js",
+    "consumer": "node consumer.js",
+    "monitor": "node monitor.js"
+  },
+  "dependencies": {
+    "amqplib": "^2.2.0"
+  },
+  "type": "commonjs"
+}
