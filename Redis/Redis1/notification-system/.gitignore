@@ -33,3 +33,4 @@ secrets/*.txt
 .env.*
 !.env.example
 secrets/*.txt
+package-lock.json
