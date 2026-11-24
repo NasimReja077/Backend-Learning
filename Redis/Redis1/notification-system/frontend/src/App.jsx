@@ -9,12 +9,26 @@ import {
   CircleCheck,
   Inbox,
   LogOut,
+  MessageSquareText,
   Radio,
   RefreshCw,
+  Send,
   Sparkles,
-  Trash2
+  Trash2,
+  X
 } from "lucide-react";
 import AuthScreen from "./components/auth-screen.jsx";
+import Button from "./components/ui/button.jsx";
+import Input from "./components/ui/input.jsx";
+import Label from "./components/ui/label.jsx";
+import Textarea from "./components/ui/textarea.jsx";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "./components/ui/card.jsx";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
@@ -44,6 +58,13 @@ export default function App() {
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [recipient, setRecipient] = useState("");
+  const [messageTitle, setMessageTitle] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const [sendSuccess, setSendSuccess] = useState("");
   const [token, setToken] = useState(() => localStorage.getItem("token"));
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -218,6 +239,49 @@ export default function App() {
     }
   };
 
+  const sendMessage = async (event) => {
+    event.preventDefault();
+    setSending(true);
+    setSendError("");
+    setSendSuccess("");
+
+    try {
+      await axios.post(
+        `${API}/notifications`,
+        {
+          recipient: recipient.trim(),
+          title: messageTitle.trim(),
+          message: messageBody.trim(),
+          type: "system"
+        },
+        { headers }
+      );
+
+      setSendSuccess("Your message was sent.");
+      setComposerOpen(false);
+      setRecipient("");
+      setMessageTitle("");
+      setMessageBody("");
+    } catch (requestError) {
+      console.error("Sending message failed:", requestError);
+      if (requestError.response?.status === 401) {
+        handleLogout();
+        return;
+      }
+      setSendError(
+        requestError.response?.data?.message ||
+        "We couldn't send your message. Check the recipient ID and try again."
+      );
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const closeComposer = () => {
+    setComposerOpen(false);
+    setSendError("");
+  };
+
   const visibleNotifications = filter === "unread"
     ? notifications.filter((item) => !item.isRead)
     : notifications;
@@ -247,6 +311,19 @@ export default function App() {
       </header>
 
       <main className="dashboard">
+        {sendSuccess && (
+          <div className="send-success" role="status">
+            <span><Check size={15} /></span>
+            <p>{sendSuccess}</p>
+            <button
+              aria-label="Dismiss message sent status"
+              onClick={() => setSendSuccess("")}
+              type="button"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
         <section className="welcome-panel">
           <div className="welcome-copy">
             <div className="eyebrow"><Sparkles size={14} /> YOUR PERSONAL INBOX</div>
@@ -272,6 +349,16 @@ export default function App() {
               <h2 id="inbox-heading">Notifications <span className="total-count">{notifications.length}</span></h2>
             </div>
             <div className="heading-actions">
+              <Button
+                className="compose-button"
+                onClick={() => {
+                  setSendError("");
+                  setComposerOpen(true);
+                }}
+              >
+                <Send size={15} />
+                <span>Send message</span>
+              </Button>
               <button
                 className="text-button"
                 onClick={loadNotifications}
@@ -392,6 +479,97 @@ export default function App() {
           <p className="footer-note"><span /> You’re all set — we’ll let you know when something happens.</p>
         </section>
       </main>
+
+      {composerOpen && (
+        <div
+          className="composer-overlay"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeComposer();
+          }}
+        >
+          <Card
+            aria-labelledby="composer-title"
+            aria-modal="true"
+            className="composer-card"
+            role="dialog"
+          >
+            <CardHeader className="composer-header">
+              <span className="composer-icon"><MessageSquareText size={19} /></span>
+              <div className="composer-heading">
+                <CardTitle id="composer-title">Send a message</CardTitle>
+                <CardDescription>
+                  Send a real-time notification to another NotifyHub user.
+                </CardDescription>
+              </div>
+              <button
+                aria-label="Close message form"
+                className="composer-close"
+                onClick={closeComposer}
+                type="button"
+              >
+                <X size={18} />
+              </button>
+            </CardHeader>
+            <CardContent>
+              <form className="composer-form" onSubmit={sendMessage}>
+                <div className="composer-field">
+                  <Label htmlFor="recipient-id">Recipient user ID</Label>
+                  <Input
+                    autoComplete="off"
+                    autoFocus
+                    id="recipient-id"
+                    onChange={(event) => setRecipient(event.target.value)}
+                    placeholder="Paste the recipient's account ID"
+                    required
+                    value={recipient}
+                  />
+                  <p className="field-hint">
+                    Use the recipient’s MongoDB user ID, not their email address.
+                  </p>
+                </div>
+                <div className="composer-field">
+                  <Label htmlFor="message-title">Title</Label>
+                  <Input
+                    id="message-title"
+                    maxLength={100}
+                    onChange={(event) => setMessageTitle(event.target.value)}
+                    placeholder="Give your message a title"
+                    required
+                    value={messageTitle}
+                  />
+                </div>
+                <div className="composer-field">
+                  <Label htmlFor="message-body">Message</Label>
+                  <Textarea
+                    id="message-body"
+                    maxLength={1000}
+                    onChange={(event) => setMessageBody(event.target.value)}
+                    placeholder="Write your message..."
+                    required
+                    rows={4}
+                    value={messageBody}
+                  />
+                  <span className="character-count">{messageBody.length}/1000</span>
+                </div>
+                {sendError && <div className="auth-error" role="alert">{sendError}</div>}
+                <div className="composer-actions">
+                  <Button
+                    className="composer-cancel"
+                    onClick={closeComposer}
+                    variant="outline"
+                  >
+                    Cancel
+                  </Button>
+                  <Button className="composer-submit" disabled={sending} type="submit">
+                    <Send size={15} />
+                    <span>{sending ? "Sending..." : "Send message"}</span>
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
