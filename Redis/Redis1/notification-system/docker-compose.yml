@@ -1,0 +1,48 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: notification-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+    environment:
+      PORT: "5000"
+      MONGO_URI_FILE: /run/secrets/mongo_uri
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    secrets:
+      - mongo_uri
+      - jwt_secret
+      - redis_password
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: notification-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+      VITE_SOCKET_URL: http://localhost:5000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+secrets:
+  mongo_uri:
+    file: ./secrets/mongo_uri.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
